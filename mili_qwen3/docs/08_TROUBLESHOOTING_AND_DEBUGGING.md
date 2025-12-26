@@ -94,11 +94,8 @@ print(f"Reserved: {torch.cuda.memory_reserved() / 1e9:.2f} GB")
 batch_size = 32  # Reduce from 64
 
 # 4. Use smaller model
-from python_layer.model.config import Qwen3Config
-config = Qwen3Config(
-    hidden_size=2048,  # Reduce from 4096
-    num_hidden_layers=16  # Reduce from 32
-)
+# The Qwen3-0.6B is already the smallest available
+# For even smaller models, consider other architectures
 
 # 5. Enable memory efficient mode
 import torch.cuda
@@ -361,9 +358,9 @@ Token IDs out of vocabulary range
 
 ```python
 # 1. Verify tokenizer initialization
-from python_layer.tokenizer.qwen_tokenizer import QwenTokenizer
+from transformers import AutoTokenizer
 
-tokenizer = QwenTokenizer()
+tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen3-0.6B")
 print(f"Vocab size: {tokenizer.vocab_size}")
 
 # 2. Test encode/decode round-trip
@@ -433,7 +430,7 @@ lsof -i :8000
 kill -9 <PID>
 
 # Or use different port
-uvicorn python_layer.server.api:app --port 8001
+python server.py
 
 # 2. CORS issues
 # Add CORS middleware in api.py:
@@ -448,10 +445,10 @@ app.add_middleware(
 )
 
 # 3. Check app module
-python -c "from python_layer.server.api import app; print('App loaded successfully')"
+python -c "from server import app; print('App loaded successfully')"
 
 # 4. Test server startup
-python -m uvicorn python_layer.server.api:app --reload --log-level debug
+python server.py
 
 # 5. Check dependencies
 pip list | grep fastapi
@@ -471,16 +468,17 @@ GPU not fully utilized
 ```python
 # 1. Enable profiling
 import time
-from python_layer.inference.scheduler import ContinuousBatchScheduler
+# Current implementation handles single requests only
+# Batching support can be added in future versions
 
-scheduler = ContinuousBatchScheduler()
+import time
 
-# Measure batch processing time
+# Measure single request processing time
 start = time.time()
-batch, batch_type = scheduler.get_next_batch()
-batch_time = time.time() - start
+# Add your request processing code here
+processing_time = time.time() - start
 
-print(f"Batch processing time: {batch_time*1000:.2f}ms")
+print(f"Request processing time: {processing_time*1000:.2f}ms")
 print(f"Batch size: {len(batch)}")
 print(f"Throughput: {len(batch)/batch_time:.0f} req/sec")
 
@@ -491,16 +489,13 @@ scheduler = ContinuousBatchScheduler(
     decode_batch_size=256
 )
 
-# 3. Enable memory pooling
-from python_layer.model.weight_loader import GPUMemoryPool
-pool = GPUMemoryPool(total_size_gb=20)
+# 3. Enable PyTorch memory optimization
+import torch
+torch.cuda.empty_cache()  # Clear GPU cache
+torch.cuda.set_per_process_memory_fraction(0.8)  # Limit memory usage
 
-# 4. Use smaller model
-from python_layer.model.config import Qwen3Config
-config = Qwen3Config(
-    hidden_size=2048,
-    num_hidden_layers=16
-)
+# 4. Use smaller model (Qwen3-0.6B is already optimized)
+# For memory-constrained systems, consider CPU-only operation
 
 # 5. Profile FastAPI endpoint
 import cProfile
@@ -538,16 +533,12 @@ RuntimeError: CUDA out of memory during inference
 # 1. Reduce batch size
 max_batch_size = 32  # Was 64
 
-# 2. Enable KV cache quantization
-from python_layer.model.weight_loader import QuantizationStrategy
+# 2. Enable PyTorch memory optimization
+import torch
+torch.cuda.set_per_process_memory_fraction(0.7)  # Limit memory usage
 
-k_cache_quantized = QuantizationStrategy.int8_quantization(k_cache)
-v_cache_quantized = QuantizationStrategy.int8_quantization(v_cache)
-
-# 3. Use memory pooling with limits
-from python_layer.model.weight_loader import GPUMemoryPool
-
-pool = GPUMemoryPool(total_size_gb=10)  # Limit to 10GB
+# 3. Use model in half precision if supported
+# model = model.half()  # Convert to float16 (experimental)
 
 # 4. Enable gradient checkpointing (if training)
 # model.gradient_checkpointing_enable()

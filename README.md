@@ -35,7 +35,7 @@ cd ..
 
 ```bash
 # Start server
-python -m uvicorn python_layer.server.api:app --reload --port 8000
+python server.py
 
 # In another terminal, test it:
 curl -X POST http://localhost:8000/generate \
@@ -128,7 +128,7 @@ mili_qwen3/
 │   │   └── helpers.🔥             # Helper functions
 │   └── build.sh                    # Build script
 │
-├── python_layer/                   # Python inference layer
+├── python_layer/                   # Legacy Python components (not used)
 │   ├── model/
 │   │   ├── __init__.py
 │   │   ├── config.py               # Qwen3Config
@@ -255,17 +255,17 @@ pytest tests/ -v
 pytest tests/unit/test_kernels.py -v
 
 # Run with coverage
-pytest tests/ --cov=python_layer --cov-report=html
+pytest tests/ --cov-report=html
 ```
 
 ### Running
 
 ```bash
 # Development server with auto-reload
-python -m uvicorn python_layer.server.api:app --reload --port 8000
+python server.py
 
-# Production server
-python -m uvicorn python_layer.server.api:app --workers 4 --port 8000
+# Production server (single process for now)
+python server.py
 
 # Simple inference script
 python examples/simple_generation.py
@@ -334,20 +334,28 @@ kubectl port-forward svc/mili-inference 8000:80
 ### Simple Generation
 
 ```python
-from python_layer.model.qwen3_model import Qwen3Model
-from python_layer.model.config import Qwen3Config
-from python_layer.model.weight_loader import WeightLoader
+# Using the API server
+import requests
 
-# Setup
-config = Qwen3Config.from_pretrained("Qwen/Qwen3-7B")
-weight_loader = WeightLoader("./models/Qwen3-7B", config)
-weight_loader.load_from_huggingface("Qwen/Qwen3-7B")
-model = Qwen3Model(config, weight_loader)
+response = requests.post("http://localhost:9999/generate", json={
+    "prompt": "What is the meaning of life?",
+    "max_tokens": 100,
+    "temperature": 0.7
+})
 
-# Generate
-response = model.generate(
-    prompt="What is the meaning of life?",
-    max_tokens=100,
+result = response.json()
+print(result["generated_text"])
+
+# Or direct Python usage
+from transformers import AutoTokenizer, AutoModelForCausalLM
+
+tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen3-0.6B")
+model = AutoModelForCausalLM.from_pretrained("Qwen/Qwen3-0.6B")
+
+inputs = tokenizer("What is the meaning of life?", return_tensors="pt")
+outputs = model.generate(**inputs, max_new_tokens=100, temperature=0.7)
+response = tokenizer.decode(outputs[0], skip_special_tokens=True)
+print(response)
     temperature=0.7
 )
 print(response)

@@ -66,7 +66,7 @@ async def startup():
         print("🚀 Initializing Qwen3 Inference Server...")
 
         # Load model and tokenizer from HuggingFace
-        model_path = "Qwen/Qwen3-0.6B"
+        model_path = "Qwen/Qwen2.5-0.5B-Instruct"
         print(f"Loading model from: {model_path}")
 
         # Load tokenizer
