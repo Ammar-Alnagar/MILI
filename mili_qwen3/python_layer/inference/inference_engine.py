@@ -247,7 +247,7 @@ class InferenceEngine:
             return True
         
         # Check EOS token
-        if output.token_ids and output.token_ids[0] == 2:
+        if output.token_ids and output.token_ids[0] == self.model.tokenizer.eos_token_id:
             return True
         
         return False
