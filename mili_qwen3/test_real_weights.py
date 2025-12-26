@@ -91,7 +91,7 @@ def test_model_generation(model):
         # Test decode mode
         print("\nTesting decode mode...")
         new_input = [next_token]
-        decode_logits, _ = model.forward(new_input, InferenceMode.DECODE, kv_cache)
+        decode_logits, _ = model.forward(np.array(new_input), InferenceMode.DECODE, kv_cache)
         print(f"Decode successful! Logits shape: {decode_logits.shape}")
 
         return True
