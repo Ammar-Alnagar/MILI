@@ -41,11 +41,10 @@ compile_mojo() {
         return 1
     fi
     
-    # Compile with optimization flags and show errors
-    echo -e "${YELLOW}Running: mojo build -O3 --no-warnings -o ${lib_dir}/${output_name}.so ${mojo_file}${NC}"
+    # Compile with optimization flags
+    echo -e "${YELLOW}Running: mojo build -O3 -o ${lib_dir}/${output_name}.so ${mojo_file}${NC}"
     if mojo build \
         -O3 \
-        --no-warnings \
         -o "${lib_dir}/${output_name}.so" \
         "${mojo_file}"; then
         echo -e "${GREEN}✓ Successfully compiled: ${output_name}${NC}"

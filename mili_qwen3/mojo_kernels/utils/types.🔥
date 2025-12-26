@@ -1,69 +1,31 @@
 """
-Core type definitions and utilities for MILI GPU kernels.
-Provides fundamental types for GPU computation and memory management.
+Core type definitions for MILI GPU kernels.
+Simplified types for basic GPU computation.
 """
 
-from std.memory import UnsafePointer
-from std.builtin.simd import Scalar
-from std.collections import List
-
-
-
-
 # ============================================================================
-# Data Type Enumerations
+# Basic Data Types
 # ============================================================================
 
-@register_passable("trivial")
 struct DType:
-    """GPU data type enumeration."""
-    var value: UInt8
-    
-    comptime float32 = DType { value: 0 }
-    comptime float16 = DType { value: 1 }
-    comptime bfloat16 = DType { value: 2 }
-    comptime int8 = DType { value: 3 }
-    comptime uint8 = DType { value: 4 }
-    comptime int32 = DType { value: 5 }
-    comptime uint32 = DType { value: 6 }
-    comptime int64 = DType { value: 7 }
-    comptime uint64 = DType { value: 8 }
-    
-    fn __eq__(self, other: DType) -> Bool:
-        return self.value == other.value
-    
-    fn __ne__(self, other: DType) -> Bool:
-        return self.value != other.value
-    
-    fn size_bytes(self) -> Int:
-        """Get size in bytes for this data type."""
-        if self.value == 0:  # float32
-            return 4
-        elif self.value == 1:  # float16
-            return 2
-        elif self.value == 2:  # bfloat16
-            return 2
-        elif self.value == 3:  # int8
-            return 1
-        elif self.value == 4:  # uint8
-            return 1
-        elif self.value == 5:  # int32
-            return 4
-        elif self.value == 6:  # uint32
-            return 4
-        elif self.value == 7:  # int64
-            return 8
-        elif self.value == 8:  # uint64
-            return 8
-        else:
-            return 4  # default
+    """Simple data type enumeration."""
+    var value: Int32
 
+    fn __init__(value: Int32) -> Self:
+        return Self {value: value}
+
+    @staticmethod
+    fn float32() -> DType:
+        return DType(0)
+
+    @staticmethod
+    fn float16() -> DType:
+        return DType(1)
 
 # ============================================================================
-# GPU Execution Configuration
+# GPU Configuration
 # ============================================================================
 
-@register_passable("trivial")
 struct GPUConfig:
     """GPU execution configuration."""
     var block_size_x: Int32
@@ -73,54 +35,47 @@ struct GPUConfig:
     var grid_size_x: Int32
     var grid_size_y: Int32
     var grid_size_z: Int32
-    
+
+    fn __init__(
+        block_size_x: Int32 = 256,
+        block_size_y: Int32 = 1,
+        block_size_z: Int32 = 1,
+        shared_memory_bytes: Int32 = 0,
+        grid_size_x: Int32 = 1,
+        grid_size_y: Int32 = 1,
+        grid_size_z: Int32 = 1,
+    ) -> Self:
+        return Self {
+            block_size_x: block_size_x,
+            block_size_y: block_size_y,
+            block_size_z: block_size_z,
+            shared_memory_bytes: shared_memory_bytes,
+            grid_size_x: grid_size_x,
+            grid_size_y: grid_size_y,
+            grid_size_z: grid_size_z
+        }
+
     fn total_threads_per_block(self) -> Int32:
         """Calculate total threads per block."""
         return self.block_size_x * self.block_size_y * self.block_size_z
-    
-    fn total_threads(self) -> Int32:
-        """Calculate total threads in grid."""
-        return self.total_threads_per_block() * self.grid_size_x * self.grid_size_y * self.grid_size_z
-
-
-@register_passable("trivial")
-struct BlockIdx:
-    """Block index in grid."""
-    var x: Int32
-    var y: Int32
-    var z: Int32
-
-
-@register_passable("trivial")
-struct ThreadIdx:
-    """Thread index within block."""
-    var x: Int32
-    var y: Int32
-    var z: Int32
-
 
 # ============================================================================
 # Tensor Metadata
 # ============================================================================
 
-@register_passable("trivial")
 struct TensorShape:
     """Tensor shape information."""
     var batch: Int32
     var seq_len: Int32
     var height: Int32
     var width: Int32
-    
+
+    fn __init__(batch: Int32, seq_len: Int32, height: Int32, width: Int32) -> Self:
+        return Self {batch: batch, seq_len: seq_len, height: height, width: width}
+
     fn total_elements(self) -> Int32:
         """Get total number of elements."""
         return self.batch * self.seq_len * self.height * self.width
-    
-    fn __init__(inout self, batch: Int32, seq_len: Int32, height: Int32, width: Int32):
-        self.batch = batch
-        self.seq_len = seq_len
-        self.height = height
-        self.width = width
-
 
 struct TensorMetadata:
     """Complete tensor metadata."""
@@ -132,200 +87,51 @@ struct TensorMetadata:
     var head_dim: Int32
     var num_kv_heads: Int32
     var vocab_size: Int32
-    
+
     fn __init__(
-        inout self,
         batch_size: Int32,
         seq_length: Int32,
         num_heads: Int32,
         head_dim: Int32,
         num_kv_heads: Int32,
         vocab_size: Int32,
-        dtype: DType = DType.float32
-    ):
-        self.shape = TensorShape(
+        dtype: DType = DType.float32()
+    ) -> Self:
+        var shape = TensorShape(
             batch=batch_size,
             seq_len=seq_length,
             height=num_heads,
             width=head_dim
         )
-        self.dtype = dtype
-        self.batch_size = batch_size
-        self.seq_length = seq_length
-        self.num_heads = num_heads
-        self.head_dim = head_dim
-        self.num_kv_heads = num_kv_heads
-        self.vocab_size = vocab_size
-    
+        return Self {
+            shape: shape,
+            dtype: dtype,
+            batch_size: batch_size,
+            seq_length: seq_length,
+            num_heads: num_heads,
+            head_dim: head_dim,
+            num_kv_heads: num_kv_heads,
+            vocab_size: vocab_size
+        }
+
     fn hidden_size(self) -> Int32:
         """Get hidden size (num_heads * head_dim)."""
         return self.num_heads * self.head_dim
-    
-    fn kv_cache_size_per_token(self) -> Int32:
-        """Get KV cache size per token (num_kv_heads * head_dim * 2 for K and V)."""
-        return self.num_kv_heads * self.head_dim * 2
-
 
 # ============================================================================
-# Device Context and Memory Pointers
+# Kernel Status
 # ============================================================================
 
-@register_passable("trivial")
-struct DeviceMemory:
-    """Device memory pointer with metadata."""
-    var ptr: UnsafePointer[Scalar[DType.float32]]
-    var size_bytes: Int64
-    var device_id: Int32
-    var is_pinned: Bool
-    
-    fn __init__(
-        inout self,
-        ptr: UnsafePointer[Scalar[DType.float32]],
-        size_bytes: Int64,
-        device_id: Int32 = 0,
-        is_pinned: Bool = False
-    ):
-        self.ptr = ptr
-        self.size_bytes = size_bytes
-        self.device_id = device_id
-        self.is_pinned = is_pinned
-
-
-struct DeviceContext:
-    """GPU device context and configuration."""
-    var device_id: Int32
-    var stream_id: Int32
-    var config: GPUConfig
-    var max_shared_memory: Int32
-    var compute_capability: Int32
-    
-    fn __init__(
-        inout self,
-        device_id: Int32 = 0,
-        stream_id: Int32 = 0,
-        block_size_x: Int32 = 256,
-        block_size_y: Int32 = 1,
-        block_size_z: Int32 = 1,
-    ):
-        self.config = GPUConfig(
-            block_size_x=block_size_x,
-            block_size_y=block_size_y,
-            block_size_z=block_size_z,
-            shared_memory_bytes=0,
-            grid_size_x=1,
-            grid_size_y=1,
-            grid_size_z=1
-        )
-        self.device_id = device_id
-        self.stream_id = stream_id
-        self.max_shared_memory = 96000  # 96KB default for modern GPUs
-        self.compute_capability = 80  # A100 = 80, H100 = 90
-    
-    fn set_grid_size(inout self, x: Int32, y: Int32, z: Int32):
-        """Set grid dimensions."""
-        self.config.grid_size_x = x
-        self.config.grid_size_y = y
-        self.config.grid_size_z = z
-    
-    fn set_shared_memory(inout self, bytes: Int32):
-        """Set shared memory size."""
-        self.config.shared_memory_bytes = bytes
-
-
-# ============================================================================
-# Kernel Computation Constants
-# ============================================================================
-
-@register_passable("trivial")
-struct KernelConfig:
-    """Kernel computation configuration."""
-    var block_m: Int32  # M dimension per block
-    var block_n: Int32  # N dimension per block
-    var block_k: Int32  # K dimension per block
-    var warp_m: Int32   # M dimension per warp
-    var warp_n: Int32   # N dimension per warp
-    var stages: Int32   # Pipeline stages
-    var use_shared_memory: Bool
-    
-    fn __init__(
-        inout self,
-        block_m: Int32 = 128,
-        block_n: Int32 = 128,
-        block_k: Int32 = 32,
-        warp_m: Int32 = 32,
-        warp_n: Int32 = 32,
-        stages: Int32 = 3,
-        use_shared_memory: Bool = True
-    ):
-        self.block_m = block_m
-        self.block_n = block_n
-        self.block_k = block_k
-        self.warp_m = warp_m
-        self.warp_n = warp_n
-        self.stages = stages
-        self.use_shared_memory = use_shared_memory
-    
-    fn total_threads_needed(self) -> Int32:
-        """Calculate threads needed for this config."""
-        return (self.block_m * self.block_n) // (self.warp_m * self.warp_n)
-
-
-# ============================================================================
-# Synchronization Primitives
-# ============================================================================
-
-@register_passable("trivial")
-struct SyncBarrier:
-    """Thread synchronization barrier."""
-    var barrier_id: Int32
-    var phase: UInt32
-    
-    fn __init__(inout self, barrier_id: Int32 = 0):
-        self.barrier_id = barrier_id
-        self.phase = 0
-
-
-# ============================================================================
-# Memory Layout and Strides
-# ============================================================================
-
-struct MemoryLayout:
-    """Memory layout descriptor."""
-    var strides: List[Int32]
-    var shape: List[Int32]
-    var is_contiguous: Bool
-    var is_row_major: Bool
-    
-    fn __init__(inout self, strides: List[Int32], shape: List[Int32], is_contiguous: Bool = True, is_row_major: Bool = True):
-        self.strides = strides
-        self.shape = shape
-        self.is_contiguous = is_contiguous
-        self.is_row_major = is_row_major
-    
-    fn element_offset(self, indices: List[Int32]) -> Int32:
-        """Calculate linear offset from multi-dimensional indices."""
-        var offset: Int32 = 0
-        for i in range(len(self.strides)):
-            offset += indices[i] * self.strides[i]
-        return offset
-
-
-# ============================================================================
-# Error Handling
-# ============================================================================
-
-@register_passable("trivial")
 struct KernelStatus:
     """Kernel execution status."""
     var success: Bool
     var error_code: Int32
-    
-    fn __init__(inout self, success: Bool = True, error_code: Int32 = 0):
-        self.success = success
-        self.error_code = error_code
-    
+
+    fn __init__(success: Bool = True, error_code: Int32 = 0) -> Self:
+        return Self {success: success, error_code: error_code}
+
     fn is_success(self) -> Bool:
         return self.success
-    
+
     fn get_error_code(self) -> Int32:
         return self.error_code

@@ -16,11 +16,13 @@ except ImportError:
     HAS_TORCH = False
 
 try:
-    import safetensors.numpy
+    import safetensors.torch
 
     HAS_SAFETENSORS = True
 except ImportError:
     HAS_SAFETENSORS = False
+
+print(f"DEBUG: HAS_TORCH={HAS_TORCH}, HAS_SAFETENSORS={HAS_SAFETENSORS}")
 
 
 class WeightLoader:
