@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "mili-qwen3"
 version = "0.1.0"
-description = "Machine Learning Inference Lattice for Qwen3 - High-performance LLM inference in Mojo and Python"
+description = "Mojo Inference Language Engine - High-performance LLM inference in Mojo and Python"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}

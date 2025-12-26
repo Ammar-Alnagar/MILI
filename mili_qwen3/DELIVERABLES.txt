@@ -1,5 +1,5 @@
 ================================================================================
-MILI: Machine Learning Inference Lattice for Qwen3 - PROJECT DELIVERABLES
+MILI: Mojo Inference Language Engine - PROJECT DELIVERABLES
 ================================================================================
 
 PROJECT STATUS: ✅ COMPLETE AND READY FOR IMPLEMENTATION

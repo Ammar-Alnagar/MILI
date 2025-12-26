@@ -1,4 +1,4 @@
-# MILI: Machine Learning Inference Lattice for Qwen-Family
+# MILI: Mojo Inference Language Engine
 
 A comprehensive, hands-on guide to building a high-performance LLM inference engine in Mojo and Python.
 

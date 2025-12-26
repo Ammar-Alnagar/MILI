@@ -2,7 +2,7 @@
 
 ## Overview
 
-MILI (Machine Learning Inference Lattice for Qwen3) is a production-ready inference server for Qwen3 language models using HuggingFace transformers. It provides a simple, efficient API for text generation with GPU acceleration.
+MILI (Mojo Inference Language Engine) is a production-ready inference server for Qwen3 language models using Mojo kernels. It provides a simple, efficient API for text generation with GPU acceleration.
 
 ## Architecture
 

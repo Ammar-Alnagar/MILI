@@ -1,8 +1,8 @@
-# MILI: Machine Learning Inference Lattice for Qwen3
+# MILI: Mojo Inference Language Engine
 
 ## Overview
 
-This guide walks you through building a **MILI (Machine Learning Inference Lattice)** inference server for the **Qwen3 language model**. MILI provides a production-ready inference system that leverages HuggingFace transformers for efficient model serving with GPU acceleration.
+This guide walks you through building a **MILI (Mojo Inference Language Engine)** inference server for the **Qwen3 language model**. MILI provides a production-ready inference system that leverages Mojo kernels for efficient model serving with GPU acceleration.
 
 This project focuses on **practical deployment** of large language models, providing a complete inference pipeline from model loading to API serving, while maintaining high performance and scalability.
 

@@ -1,5 +1,5 @@
 """
-MILI: Machine Learning Inference Lattice for Qwen3
+MILI: Mojo Inference Language Engine
 Python integration layer for Mojo-accelerated inference.
 """
 
@@ -18,17 +18,17 @@ __version__ = "0.1.0"
 __author__ = "MILI Team"
 
 __all__ = [
-    'Qwen3Model',
-    'ModelConfig',
-    'InferenceMode',
-    'InferenceRequest',
-    'PagedKVCache',
-    'RadixAttentionCache',
-    'ContinuousBatchingScheduler',
-    'AllocationStrategy',
-    'EvictionPolicy',
-    'InferenceEngine',
-    'GenerationOutput',
-    'QwenTokenizer',
-    'MessageFormatter',
+    "Qwen3Model",
+    "ModelConfig",
+    "InferenceMode",
+    "InferenceRequest",
+    "PagedKVCache",
+    "RadixAttentionCache",
+    "ContinuousBatchingScheduler",
+    "AllocationStrategy",
+    "EvictionPolicy",
+    "InferenceEngine",
+    "GenerationOutput",
+    "QwenTokenizer",
+    "MessageFormatter",
 ]
