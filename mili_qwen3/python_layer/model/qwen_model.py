@@ -215,7 +215,6 @@ class Qwen3Model:
         # Often tied to embeddings
         self.lm_head = self.embeddings.T.copy()
 
-        self.final_norm_weight = np.ones(self.config.hidden_size, dtype=self.dtype)
         self.lm_head = self.embeddings.T.copy()
 
     def forward(
