@@ -3,7 +3,7 @@ Core type definitions and utilities for MILI GPU kernels.
 Provides fundamental types for GPU computation and memory management.
 """
 
-from sys.info import simdwidthof
+
 
 
 # ============================================================================
@@ -282,13 +282,15 @@ struct SyncBarrier:
 # Memory Layout and Strides
 # ============================================================================
 
-@register_passable("trivial")
 struct MemoryLayout:
     """Memory layout descriptor."""
     var strides: DynamicVector[Int32]
     var shape: DynamicVector[Int32]
     var is_contiguous: Bool
     var is_row_major: Bool
+    
+    fn __init__(strides: DynamicVector[Int32], shape: DynamicVector[Int32], is_contiguous: Bool = True, is_row_major: Bool = True) -> Self:
+        return Self(strides=strides, shape=shape, is_contiguous=is_contiguous, is_row_major=is_row_major)
     
     fn element_offset(self, indices: DynamicVector[Int32]) -> Int32:
         """Calculate linear offset from multi-dimensional indices."""
@@ -307,7 +309,9 @@ struct KernelStatus:
     """Kernel execution status."""
     var success: Bool
     var error_code: Int32
-    var error_message_ptr: DTypePointer[DType.uint8]
+    
+    fn __init__(success: Bool = True, error_code: Int32 = 0) -> Self:
+        return Self(success=success, error_code=error_code)
     
     fn is_success(self) -> Bool:
         return self.success
