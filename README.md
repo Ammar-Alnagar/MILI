@@ -1,4 +1,4 @@
-# MILI: Machine Learning Inference Lattice for Qwen3
+# MILI: Machine Learning Inference Lattice for Qwen-Family
 
 A comprehensive, hands-on guide to building a high-performance LLM inference engine in Mojo and Python.
 
