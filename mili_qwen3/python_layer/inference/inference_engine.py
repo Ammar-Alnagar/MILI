@@ -144,9 +144,9 @@ class InferenceEngine:
         
         for request in candidates:
             if request not in batch:
-                # Estimate tokens needed
-                tokens_needed = len(request.input_ids) + request.max_new_tokens
-                
+                # Estimate tokens needed for this step
+                tokens_needed = len(request.input_ids) if request.generated_tokens == 0 else 1
+
                 if len(batch) < self.batch_size and total_tokens + tokens_needed <= self.max_batch_tokens:
                     batch.append(request)
                     total_tokens += tokens_needed
