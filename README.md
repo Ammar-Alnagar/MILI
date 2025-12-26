@@ -473,4 +473,4 @@ This project builds upon research from:
 
 **Happy inferencing! **
 
-For a detailed walkthrough, start with [01_PROJECT_OVERVIEW.md](docs/01_PROJECT_OVERVIEW.md).
+For a detailed walkthrough, start with [01_PROJECT_OVERVIEW.md](mili_qwen3/docs/01_PROJECT_OVERVIEW.md).
