@@ -1,8 +1,12 @@
 # KV Cache Management & RadixAttention Guide for MILI
 
-## Overview
+# KV Cache Management (Legacy)
 
-Efficient KV cache management is critical for LLM inference. This guide covers:
+**Note**: This guide describes KV cache management techniques that were planned for the original implementation. The current system uses HuggingFace transformers' built-in KV cache handling.
+
+## Original Overview
+
+Efficient KV cache management is critical for LLM inference. This guide covered:
 
 1. **Paged KV Cache**: Fixed-size memory blocks for flexibility
 2. **RadixAttention**: Prefix sharing and cache reuse

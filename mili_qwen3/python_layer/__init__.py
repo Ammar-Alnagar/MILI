@@ -1,15 +1,34 @@
-"""MILI Python inference layer."""
+"""
+MILI: Machine Learning Inference Lattice for Qwen3
+Python integration layer for Mojo-accelerated inference.
+"""
+
+from .model.qwen_model import Qwen3Model, ModelConfig, InferenceMode, InferenceRequest
+from .memory.kv_cache_manager import (
+    PagedKVCache,
+    RadixAttentionCache,
+    ContinuousBatchingScheduler,
+    AllocationStrategy,
+    EvictionPolicy,
+)
+from .inference.inference_engine import InferenceEngine, GenerationOutput
+from .tokenizer.qwen_tokenizer import QwenTokenizer, MessageFormatter
 
 __version__ = "0.1.0"
-__author__ = "MILI Contributors"
-
-from .model.config import Qwen3Config
-from .model.qwen3_model import Qwen3Model
-from .tokenizer.qwen_tokenizer import QwenTokenizer, get_tokenizer
+__author__ = "MILI Team"
 
 __all__ = [
-    "Qwen3Config",
-    "Qwen3Model",
-    "QwenTokenizer",
-    "get_tokenizer",
+    'Qwen3Model',
+    'ModelConfig',
+    'InferenceMode',
+    'InferenceRequest',
+    'PagedKVCache',
+    'RadixAttentionCache',
+    'ContinuousBatchingScheduler',
+    'AllocationStrategy',
+    'EvictionPolicy',
+    'InferenceEngine',
+    'GenerationOutput',
+    'QwenTokenizer',
+    'MessageFormatter',
 ]

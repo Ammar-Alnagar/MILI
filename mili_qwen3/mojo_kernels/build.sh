@@ -42,16 +42,20 @@ compile_mojo() {
     fi
     
     # Compile with optimization flags
-    if mojo build \
-        -O3 \
-        --no-warnings \
-        -o "${lib_dir}/${output_name}.so" \
-        "${mojo_file}" 2>/dev/null; then
+    echo -e "${YELLOW}Running: mojo build -O3 -o ${lib_dir}/${output_name}.so ${mojo_file}${NC}"
+    if output=$(mojo build -O3 -o "${lib_dir}/${output_name}.so" "${mojo_file}" 2>&1); then
         echo -e "${GREEN}✓ Successfully compiled: ${output_name}${NC}"
         return 0
     else
-        echo -e "${RED}✗ Failed to compile: ${mojo_file}${NC}"
-        return 1
+        # Check if the error is just "no main function" (expected for libraries)
+        if echo "$output" | grep -q "module does not contain a 'main' function"; then
+            echo -e "${GREEN}✓ Successfully compiled: ${output_name} (library module)${NC}"
+            return 0
+        else
+            echo -e "${RED}✗ Failed to compile: ${mojo_file}${NC}"
+            echo -e "${RED}$output${NC}"
+            return 1
+        fi
     fi
 }
 

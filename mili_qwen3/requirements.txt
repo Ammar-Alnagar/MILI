@@ -31,3 +31,4 @@ mypy>=1.0.0
 ipython>=8.0.0
 
 # Optional: NVIDIA specific
+accelerate

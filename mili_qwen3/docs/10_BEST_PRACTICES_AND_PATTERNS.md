@@ -329,12 +329,12 @@ return model.generate(prompt)  # Dies if model fails
 
 ```python
 import pytest
-from python_layer.tokenizer.qwen_tokenizer import QwenTokenizer
+from transformers import AutoTokenizer
 
 @pytest.fixture
 def tokenizer():
     """Fixture for tokenizer."""
-    return QwenTokenizer()
+    return AutoTokenizer.from_pretrained("Qwen/Qwen3-0.6B")
 
 @pytest.mark.parametrize("text,expected_len", [
     ("Hello", 1),
@@ -370,13 +370,9 @@ class TestInferenceEndToEnd:
     @pytest.fixture(scope="class")
     def model(self):
         """Load model once for all tests."""
-        from python_layer.model.config import Qwen3Config
-        from python_layer.model.weight_loader import WeightLoader
-        from python_layer.model.qwen3_model import Qwen3Model
-        
-        config = Qwen3Config(hidden_size=2048, num_hidden_layers=8)
-        loader = WeightLoader("./models/test", config)
-        return Qwen3Model(config, loader)
+        from transformers import AutoModelForCausalLM
+
+        return AutoModelForCausalLM.from_pretrained("Qwen/Qwen3-0.6B")
     
     def test_generation_produces_valid_tokens(self, model):
         """Test that generation produces valid tokens."""

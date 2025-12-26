@@ -1,8 +1,37 @@
 # Mojo Kernel Development Guide for MILI
 
-## Introduction
+# Mojo Kernel Guide (Legacy)
 
-This guide walks you through implementing GPU kernels in Mojo for the MILI inference system. Mojo provides a Python-like syntax while offering C-level performance and direct GPU programming capabilities.
+**⚠️ Note**: This guide describes the original Mojo kernel implementation that is **no longer used** in the current codebase. The current implementation uses HuggingFace transformers directly for inference.
+
+This guide is kept for historical reference and potential future optimizations.
+
+## Original Introduction
+
+This guide walked through implementing GPU kernels in Mojo for the MILI inference system. Mojo provides a Python-like syntax while offering C-level performance and direct GPU programming capabilities.
+
+## ⚠️ Important Notice
+
+**All code examples in this document are hypothetical implementations that were planned but never actually built.** The current codebase contains only stub functions as placeholders. For example:
+
+**Actual implementation in `mojo_kernels/core/attention.🔥`:**
+```mojo
+"""
+Attention kernel stub for MILI.
+"""
+
+fn flash_attention_stub():
+    """Stub FlashAttention function."""
+    pass
+```
+
+**What the docs show (hypothetical):**
+```mojo
+struct FlashAttentionKernel:
+    // Complex implementation that doesn't exist
+```
+
+The stub files are intended as starting points for future development when Mojo ecosystem matures. The current working system uses HuggingFace transformers instead.
 
 ### Why Mojo for GPU Kernels?
 
@@ -36,26 +65,90 @@ mojo_kernels/
 
 ### 1.2 Build System
 
-**File: `mojo_kernels/build.sh`**
+**Note**: The current Mojo kernels are stubs and do not contain real implementations. They serve as placeholders for future development.
+
+**File: `mojo_kernels/build.sh`** (Actual implementation)
 
 ```bash
 #!/bin/bash
-# Build script for Mojo kernels
+# Build script for MILI Mojo GPU kernels
+# Compiles all Mojo kernels for the MILI inference system
 
-set -e
+set -e  # Exit on first error
 
-echo "Building Mojo kernels for MILI..."
+# Color codes for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
 
-# Compile each kernel module
-echo "Compiling core kernels..."
-mojo build -o lib/core/attention.so core/attention.🔥
-mojo build -o lib/core/rope.so core/rope.🔥
-mojo build -o lib/core/activations.so core/activations.🔥
-mojo build -o lib/core/normalization.so core/normalization.🔥
+# Configuration
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BUILD_DIR="${SCRIPT_DIR}/build"
+LIB_DIR="${SCRIPT_DIR}/lib"
 
-echo "Compiling memory management kernels..."
-mojo build -o lib/memory/kv_cache.so memory/kv_cache.🔥
-mojo build -o lib/memory/allocator.so memory/allocator.🔥
+# Create output directories
+mkdir -p "${BUILD_DIR}"
+mkdir -p "${LIB_DIR}"
+
+echo -e "${BLUE}========================================${NC}"
+echo -e "${BLUE}Building MILI Mojo GPU Kernels${NC}"
+echo -e "${BLUE}========================================${NC}"
+
+# Function to compile a Mojo file
+compile_mojo() {
+    local mojo_file=$1
+    local output_name=$2
+    local lib_dir=$3
+
+    echo -e "${YELLOW}Compiling: ${mojo_file}${NC}"
+
+    # Check if mojo command exists
+    if ! command -v mojo &> /dev/null; then
+        echo -e "${RED}Error: mojo command not found. Please install Mojo SDK.${NC}"
+        return 1
+    fi
+
+    # Compile with optimization flags
+    echo -e "${YELLOW}Running: mojo build -O3 -o ${lib_dir}/${output_name}.so ${mojo_file}${NC}"
+    if output=$(mojo build -O3 -o "${lib_dir}/${output_name}.so" "${mojo_file}" 2>&1); then
+        echo -e "${GREEN}✓ Successfully compiled: ${output_name}${NC}"
+        return 0
+    else
+        # Check if the error is just "no main function" (expected for libraries)
+        if echo "$output" | grep -q "module does not contain a 'main' function"; then
+            echo -e "${GREEN}✓ Successfully compiled: ${output_name} (library module)${NC}"
+            return 0
+        else
+            echo -e "${RED}✗ Failed to compile: ${mojo_file}${NC}"
+            echo -e "${RED}$output${NC}"
+            return 1
+        fi
+    fi
+}
+
+# Compile utility types first (dependency for other kernels)
+echo -e "${BLUE}[1/6] Compiling utility types...${NC}"
+compile_mojo "${SCRIPT_DIR}/utils/types.🔥" "types" "${LIB_DIR}" || exit 1
+
+# Compile core kernels
+echo -e "${BLUE}[2/6] Compiling RoPE kernel...${NC}"
+compile_mojo "${SCRIPT_DIR}/core/rope.🔥" "rope" "${LIB_DIR}" || exit 1
+
+echo -e "${BLUE}[3/6] Compiling RMSNorm kernel...${NC}"
+compile_mojo "${SCRIPT_DIR}/core/normalization.🔥" "rmsnorm" "${LIB_DIR}" || exit 1
+
+echo -e "${BLUE}[4/6] Compiling SwiGLU activation kernel...${NC}"
+compile_mojo "${SCRIPT_DIR}/core/activations.🔥" "activations" "${LIB_DIR}" || exit 1
+
+echo -e "${BLUE}[5/6] Compiling Attention kernels (FlashAttention, Decode)...${NC}"
+compile_mojo "${SCRIPT_DIR}/core/attention.🔥" "attention" "${LIB_DIR}" || exit 1
+
+# Compile memory management kernels
+echo -e "${BLUE}[6/6] Compiling Paged KV Cache kernel...${NC}"
+compile_mojo "${SCRIPT_DIR}/memory/kv_cache.🔥" "kv_cache" "${LIB_DIR}" || exit 1
+```
 
 echo "All kernels compiled successfully!"
 ls -lah lib/*/
@@ -65,19 +158,22 @@ ls -lah lib/*/
 
 **File: `mojo_kernels/utils/types.🔥`**
 
-This file defines the core types used throughout the kernel implementations.
+The current implementation contains basic stub types:
 
 ```mojo
-"""Core type definitions for MILI kernels."""
+"""
+Minimal type definitions for MILI GPU kernels.
+"""
 
-# Data types enum
-@register_passable("trivial")
+# Basic data type
 struct DType:
-    var value: Int
-    
-    alias float32 = DType(0)
-    alias float16 = DType(1)
-    alias bfloat16 = DType(2)
+    var value: Int32
+
+# Kernel status
+struct KernelStatus:
+    var success: Bool
+    var error_code: Int32
+```
     alias int8 = DType(3)
     alias int32 = DType(4)
 
@@ -141,35 +237,19 @@ struct DeviceContext:
 
 RoPE applies rotations to query and key embeddings based on position.
 
+**Note**: The current RoPE implementation is a stub placeholder.
+
+**File: `mojo_kernels/core/rope.🔥`** (Actual implementation)
+
 ```mojo
-"""Rotary Position Embeddings (RoPE) kernel implementation."""
+"""
+RoPE kernel stub for MILI.
+"""
 
-from utils.types import DType, BufferMetadata, DeviceContext
-from math import sin, cos, pi
-
-struct RoPEKernel:
-    """Kernel for applying Rotary Position Embeddings."""
-    
-    var context: DeviceContext
-    var metadata: BufferMetadata
-    
-    fn __init__(
-        inout self,
-        context: DeviceContext,
-        metadata: BufferMetadata
-    ):
-        self.context = context
-        self.metadata = metadata
-    
-    fn compute_rope_freqs(
-        self,
-        pos: UInt32,
-        head_dim: UInt32,
-        base: Float32 = 10000.0
-    ) -> SIMD[DType.float32, 2]:
-        """Compute RoPE frequencies for a position."""
-        let i = pos * 2
-        let theta = base ** (-2.0 * (i / head_dim))
+# Stub function for RoPE application
+fn apply_rope_stub():
+    """Stub RoPE function."""
+    pass
         let m = pos.cast[Float32]()
         
         let real = cos(m * theta)
@@ -249,32 +329,16 @@ struct RoPEKernel:
 
 **File: `mojo_kernels/core/normalization.🔥`**
 
-RMSNorm is a simplified layer normalization that stabilizes training.
+**Note**: The current RMSNorm implementation is a stub placeholder.
 
 ```mojo
-"""RMSNorm (Root Mean Square Layer Normalization) kernel implementation."""
+"""
+Normalization kernel stub for MILI.
+"""
 
-from utils.types import DType, BufferMetadata, DeviceContext
-from math import sqrt
-
-struct RMSNormKernel:
-    """Kernel for RMSNorm normalization."""
-    
-    var context: DeviceContext
-    var metadata: BufferMetadata
-    var epsilon: Float32
-    
-    fn __init__(
-        inout self,
-        context: DeviceContext,
-        metadata: BufferMetadata,
-        epsilon: Float32 = 1e-6
-    ):
-        self.context = context
-        self.metadata = metadata
-        self.epsilon = epsilon
-    
-    fn compute_rms(
+fn rms_norm_stub():
+    """Stub RMSNorm function."""
+    pass
         self,
         ptr: UnsafePointer[Float32],
         dim: UInt32

@@ -1,564 +1,356 @@
 # MILI Deployment Guide
 
-## Overview
+# MILI Qwen3 Deployment Guide
 
-This guide covers deploying MILI inference system in production environments.
+This guide covers deploying the MILI Qwen3 inference server in various environments.
 
----
+## Local Development
 
-## Part 1: FastAPI Server Setup
+### Quick Start
 
-### Server Architecture
-
-**File: `python_layer/server/api.py`**
-
-```python
-"""FastAPI inference server for MILI."""
-
-from fastapi import FastAPI, HTTPException, BackgroundTasks
-from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
-from typing import Optional, List
-import asyncio
-import json
-
-from ..model.qwen3_model import Qwen3Model
-from ..inference.scheduler import ContinuousBatchScheduler
-from ..tokenizer.qwen_tokenizer import get_tokenizer
-
-
-# Request/Response models
-class GenerationRequest(BaseModel):
-    """Text generation request."""
-    prompt: str
-    max_tokens: int = 128
-    temperature: float = 1.0
-    top_p: float = 0.95
-    top_k: int = 50
-    stream: bool = False
-
-
-class GenerationResponse(BaseModel):
-    """Text generation response."""
-    request_id: str
-    generated_text: str
-    tokens: List[int]
-    total_tokens: int
-
-
-# Initialize FastAPI
-app = FastAPI(title="MILI Inference Server")
-
-# Global state
-model = None
-scheduler = None
-tokenizer = None
-
-
-@app.on_event("startup")
-async def startup():
-    """Initialize model and scheduler on startup."""
-    global model, scheduler, tokenizer
-    
-    from ..model.config import Qwen3Config
-    from ..model.weight_loader import WeightLoader
-    
-    # Load configuration
-    config = Qwen3Config.from_pretrained("Qwen/Qwen3-7B")
-    
-    # Load weights
-    weight_loader = WeightLoader(
-        model_path="./models/Qwen3-7B",
-        config=config,
-        device="cuda"
-    )
-    weight_loader.load_from_huggingface("Qwen/Qwen3-7B")
-    
-    # Initialize model
-    model = Qwen3Model(config, weight_loader)
-    
-    # Initialize scheduler
-    scheduler = ContinuousBatchScheduler(
-        max_batch_size=64,
-        prefill_batch_size=32,
-        decode_batch_size=256
-    )
-    
-    # Initialize tokenizer
-    tokenizer = get_tokenizer()
-    
-    print("Model loaded and ready for inference")
-
-
-@app.post("/generate", response_model=GenerationResponse)
-async def generate(request: GenerationRequest):
-    """
-    Generate text from prompt.
-    
-    Args:
-        request: GenerationRequest with prompt and parameters
-        
-    Returns:
-        GenerationResponse with generated text
-    """
-    if model is None:
-        raise HTTPException(status_code=503, detail="Model not loaded")
-    
-    try:
-        # Tokenize prompt
-        tokens = tokenizer.encode(request.prompt)
-        
-        # Add to scheduler
-        request_id = scheduler.add_request(
-            prompt_tokens=tokens,
-            max_tokens=request.max_tokens,
-            temperature=request.temperature,
-            top_p=request.top_p,
-            top_k=request.top_k
-        )
-        
-        # Generate (simplified - actual would run scheduler loop)
-        generated = await generate_tokens(request_id, request.max_tokens)
-        
-        # Decode response
-        generated_text = tokenizer.decode(generated)
-        
-        return GenerationResponse(
-            request_id=request_id,
-            generated_text=generated_text,
-            tokens=generated,
-            total_tokens=len(tokens) + len(generated)
-        )
-    
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.get("/status/{request_id}")
-async def get_status(request_id: str):
-    """Get status of a generation request."""
-    if scheduler is None:
-        raise HTTPException(status_code=503, detail="Service not ready")
-    
-    status = scheduler.get_request_status(request_id)
-    return status
-
-
-async def generate_tokens(request_id: str, max_tokens: int) -> List[int]:
-    """Generate tokens for a request."""
-    generated = []
-    
-    for _ in range(max_tokens):
-        # Get next batch
-        batch, batch_type = scheduler.get_next_batch()
-        
-        if not batch:
-            await asyncio.sleep(0.01)
-            continue
-        
-        # Run inference (simplified)
-        # In real impl: call Mojo kernels
-        
-        await asyncio.sleep(0.001)
-    
-    return generated
-
-
-# Health check
-@app.get("/health")
-async def health_check():
-    """Health check endpoint."""
-    return {
-        "status": "healthy",
-        "model_loaded": model is not None,
-        "scheduler_ready": scheduler is not None
-    }
+1. **Install Dependencies**
+```bash
+pip install -r requirements.txt
 ```
 
----
+2. **Run the Server**
+```bash
+python server.py
+```
 
-## Part 2: Docker Deployment
+3. **Test the API**
+```bash
+curl -X POST "http://localhost:9999/generate" \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "Hello, world!", "max_tokens": 20}'
+```
 
-### Dockerfile
+### Requirements Check
 
-**File: `deployment/docker/Dockerfile`**
+```bash
+# Check Python version
+python --version  # Should be 3.8+
 
+# Check available memory (GPU recommended)
+nvidia-smi  # For NVIDIA GPUs
+
+# Check disk space (models need ~5GB)
+df -h
+```
+
+## Production Deployment
+
+### Docker Deployment
+
+**Dockerfile:**
 ```dockerfile
-# Multi-stage build for MILI inference
+FROM python:3.10-slim
 
-# Stage 1: Build Mojo kernels
-FROM nvidia/cuda:12.1-devel-ubuntu22.04 as builder
-
-# Install Mojo
-RUN curl https://docs.modular.com/mojo/install.sh | bash
-
-# Copy kernel source
-COPY mojo_kernels /app/mojo_kernels
-WORKDIR /app/mojo_kernels
-
-# Build kernels
-RUN bash build.sh
-
-# Stage 2: Runtime image
-FROM nvidia/cuda:12.1-runtime-ubuntu22.04
-
-# Install Python
-RUN apt-get update && apt-get install -y \
-    python3.10 \
-    python3-pip \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install Python dependencies
 WORKDIR /app
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install -r requirements.txt
 
-# Copy application
-COPY python_layer /app/python_layer
-COPY config /app/config
-COPY models /app/models
+COPY . .
+EXPOSE 9999
 
-# Copy compiled kernels from builder
-COPY --from=builder /app/mojo_kernels/lib /app/mojo_kernels/lib
-
-# Set environment
-ENV PYTHONUNBUFFERED=1
-ENV CUDA_VISIBLE_DEVICES=0
-
-# Expose port
-EXPOSE 8000
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
-
-# Run server
-CMD ["python", "-m", "uvicorn", "python_layer.server.api:app", \
-     "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python", "server.py"]
 ```
 
-### Docker Compose
-
-**File: `deployment/docker/docker-compose.yml`**
-
-```yaml
-version: '3.8'
-
-services:
-  mili-server:
-    build:
-      context: ../..
-      dockerfile: deployment/docker/Dockerfile
-    ports:
-      - "8000:8000"
-    environment:
-      - CUDA_VISIBLE_DEVICES=0
-      - MODEL_NAME=Qwen/Qwen3-7B
-      - MAX_BATCH_SIZE=64
-    volumes:
-      - ./models:/app/models
-      - ./cache:/app/cache
-    gpus:
-      - driver: nvidia
-        count: 1
-        capabilities: [compute, utility]
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
-  prometheus:
-    image: prom/prometheus:latest
-    ports:
-      - "9090:9090"
-    volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-
-  grafana:
-    image: grafana/grafana:latest
-    ports:
-      - "3000:3000"
-    environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
-    volumes:
-      - grafana-storage:/var/lib/grafana
-
-volumes:
-  grafana-storage:
-```
-
----
-
-## Part 3: Kubernetes Deployment
-
-### Deployment YAML
-
-**File: `deployment/kubernetes/deployment.yaml`**
-
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: mili-inference
-spec:
-  replicas: 2
-  selector:
-    matchLabels:
-      app: mili-inference
-  template:
-    metadata:
-      labels:
-        app: mili-inference
-    spec:
-      containers:
-      - name: mili
-        image: mili:latest
-        ports:
-        - containerPort: 8000
-        resources:
-          requests:
-            memory: "32Gi"
-            nvidia.com/gpu: "1"
-          limits:
-            memory: "48Gi"
-            nvidia.com/gpu: "1"
-        env:
-        - name: MODEL_NAME
-          value: "Qwen/Qwen3-7B"
-        - name: CUDA_VISIBLE_DEVICES
-          value: "0"
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 8000
-          initialDelaySeconds: 30
-          periodSeconds: 10
-        readinessProbe:
-          httpGet:
-            path: /health
-            port: 8000
-          initialDelaySeconds: 5
-          periodSeconds: 5
-      nodeSelector:
-        gpu: "true"
-```
-
-### Service YAML
-
-**File: `deployment/kubernetes/service.yaml`**
-
-```yaml
-apiVersion: v1
-kind: Service
-metadata:
-  name: mili-inference
-spec:
-  selector:
-    app: mili-inference
-  ports:
-  - protocol: TCP
-    port: 80
-    targetPort: 8000
-  type: LoadBalancer
-```
-
-### Deployment Commands
-
+**Build and Run:**
 ```bash
 # Build image
-docker build -t mili:latest -f deployment/docker/Dockerfile .
+docker build -t mili-qwen3 .
 
-# Deploy to Kubernetes
-kubectl apply -f deployment/kubernetes/deployment.yaml
-kubectl apply -f deployment/kubernetes/service.yaml
+# Run container
+docker run -p 9999:9999 mili-qwen3
+
+# Run with GPU support
+docker run --gpus all -p 9999:9999 mili-qwen3
+```
+
+### Systemd Service
+
+**Create service file** (`/etc/systemd/system/mili-qwen3.service`):
+```ini
+[Unit]
+Description=MILI Qwen3 Inference Server
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/mili-qwen3
+ExecStart=/home/ubuntu/venv/bin/python server.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+**Service Management:**
+```bash
+# Reload systemd
+sudo systemctl daemon-reload
+
+# Start service
+sudo systemctl start mili-qwen3
+
+# Enable auto-start
+sudo systemctl enable mili-qwen3
 
 # Check status
-kubectl get pods
-kubectl logs -f deployment/mili-inference
+sudo systemctl status mili-qwen3
 
-# Port forward for local testing
-kubectl port-forward service/mili-inference 8000:80
+# View logs
+journalctl -u mili-qwen3 -f
 ```
 
----
+### Nginx Reverse Proxy
 
-## Part 4: Performance Optimization
+**nginx.conf:**
+```nginx
+server {
+    listen 80;
+    server_name your-domain.com;
 
-### GPU Optimization
-
-```python
-"""GPU optimization utilities."""
-
-import torch
-import torch.cuda as cuda
-
-def optimize_gpu():
-    """Optimize GPU for inference."""
-    # Use TF32 for better throughput
-    torch.backends.cuda.matmul.allow_tf32 = True
-    torch.backends.cudnn.allow_tf32 = True
-    
-    # Use cuDNN auto-tuner
-    torch.backends.cudnn.benchmark = True
-    
-    # Disable grad computation
-    torch.no_grad().__enter__()
-    
-    print("GPU optimizations applied")
-
-def print_gpu_stats():
-    """Print GPU memory statistics."""
-    print(f"GPU memory allocated: {cuda.memory_allocated() / 1e9:.2f} GB")
-    print(f"GPU memory reserved: {cuda.memory_reserved() / 1e9:.2f} GB")
-    print(f"GPU memory cached: {cuda.memory_cached() / 1e9:.2f} GB")
+    location / {
+        proxy_pass http://127.0.0.1:9999;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
 ```
 
-### Monitoring
+### Cloud Deployment
 
-```python
-"""Monitoring and metrics collection."""
+#### AWS EC2 with GPU
 
-from prometheus_client import Counter, Histogram, Gauge
-import time
+1. **Launch EC2 Instance**
+   - Instance type: `g4dn.xlarge` (T4 GPU) or `p3.2xlarge` (V100 GPU)
+   - AMI: Ubuntu 22.04 LTS
+   - Storage: 50GB+ GP3
 
-# Metrics
-request_count = Counter('mili_requests_total', 'Total requests')
-generation_time = Histogram('mili_generation_seconds', 'Generation time')
-queue_size = Gauge('mili_queue_size', 'Current queue size')
-gpu_memory = Gauge('mili_gpu_memory_bytes', 'GPU memory usage')
+2. **Install Dependencies**
+```bash
+# Update system
+sudo apt update && sudo apt upgrade -y
 
-def record_generation(duration: float):
-    """Record generation metric."""
-    request_count.inc()
-    generation_time.observe(duration)
+# Install Python and pip
+sudo apt install python3 python3-pip -y
 
-def monitor_gpu():
-    """Monitor GPU metrics."""
-    import torch
-    gpu_memory.set(torch.cuda.memory_allocated())
+# Install CUDA (for GPU instances)
+# Follow NVIDIA instructions for your GPU type
 ```
 
----
+3. **Deploy Application**
+```bash
+# Clone repository
+git clone <your-repo>
+cd mili-qwen3
 
-## Part 5: Load Testing
+# Install dependencies
+pip install -r requirements.txt
 
-```python
-"""Load testing utilities."""
-
-import asyncio
-import aiohttp
-import time
-from typing import List
-
-async def load_test(
-    url: str = "http://localhost:8000/generate",
-    num_requests: int = 100,
-    concurrent: int = 10
-):
-    """
-    Run load test against inference server.
-    
-    Args:
-        url: Server URL
-        num_requests: Total number of requests
-        concurrent: Concurrent requests
-    """
-    semaphore = asyncio.Semaphore(concurrent)
-    
-    async def make_request(session, prompt):
-        async with semaphore:
-            try:
-                async with session.post(
-                    url,
-                    json={
-                        "prompt": prompt,
-                        "max_tokens": 100,
-                        "temperature": 0.7
-                    },
-                    timeout=aiohttp.ClientTimeout(total=300)
-                ) as resp:
-                    return await resp.json()
-            except Exception as e:
-                return {"error": str(e)}
-    
-    prompts = [f"Write a story about {i}" for i in range(num_requests)]
-    
-    async with aiohttp.ClientSession() as session:
-        start = time.time()
-        
-        tasks = [make_request(session, p) for p in prompts]
-        results = await asyncio.gather(*tasks)
-        
-        duration = time.time() - start
-    
-    # Analyze results
-    successful = sum(1 for r in results if "error" not in r)
-    failed = num_requests - successful
-    
-    print(f"Load Test Results:")
-    print(f"  Total requests: {num_requests}")
-    print(f"  Successful: {successful}")
-    print(f"  Failed: {failed}")
-    print(f"  Duration: {duration:.2f}s")
-    print(f"  Throughput: {num_requests/duration:.2f} req/s")
-    print(f"  Average latency: {duration/num_requests*1000:.2f} ms")
+# Run with systemd (see above)
 ```
 
----
+#### Google Cloud Platform
 
-## Part 6: Quick Start Commands
+1. **Create VM Instance**
+   - Machine type: `n1-standard-8` or GPU instance
+   - GPU: NVIDIA Tesla T4 (optional)
+   - OS: Ubuntu 22.04 LTS
+
+2. **Setup Firewall**
+```bash
+gcloud compute firewall-rules create mili-qwen3 \
+  --allow tcp:9999 \
+  --source-ranges 0.0.0.0/0 \
+  --description "Allow MILI Qwen3 traffic"
+```
+
+#### DigitalOcean Droplet
+
+1. **Create Droplet**
+   - Image: Ubuntu 22.04 LTS
+   - Plan: Basic with 4GB RAM minimum
+   - Region: Closest to your users
+
+2. **Setup Domain** (optional)
+```bash
+# Add A record pointing to droplet IP
+# Configure nginx reverse proxy as above
+```
+
+## Monitoring
+
+### Health Checks
 
 ```bash
-# Build locally
-python -m pip install -r requirements.txt
-mojo build -o lib/core/rope.so mojo_kernels/core/rope.🔥
+# Check server health
+curl http://localhost:9999/health
 
-# Run server locally
-python -m uvicorn python_layer.server.api:app --reload --port 8000
-
-# Test server
-curl -X POST http://localhost:8000/generate \
-  -H "Content-Type: application/json" \
-  -d '{
-    "prompt": "What is artificial intelligence?",
-    "max_tokens": 100,
-    "temperature": 0.7
-  }'
-
-# Docker deployment
-docker-compose -f deployment/docker/docker-compose.yml up
-
-# Kubernetes deployment
-kubectl apply -f deployment/kubernetes/
-
-# Load testing
-python -c "
-import asyncio
-from deployment.load_test import load_test
-asyncio.run(load_test(num_requests=100, concurrent=10))
-"
+# Monitor with cron
+echo "*/5 * * * * curl -f http://localhost:9999/health > /dev/null || systemctl restart mili-qwen3" | crontab -
 ```
 
----
+### Performance Monitoring
+
+```python
+# monitor.py
+import time
+import requests
+import psutil
+
+def monitor_server():
+    # Check response time
+    start = time.time()
+    response = requests.post("http://localhost:9999/generate",
+                           json={"prompt": "Hello", "max_tokens": 10})
+    latency = time.time() - start
+
+    # Check system resources
+    cpu = psutil.cpu_percent()
+    memory = psutil.virtual_memory().percent
+
+    print(f"Latency: {latency:.2f}s, CPU: {cpu}%, Memory: {memory}%")
+
+    return response.status_code == 200
+
+if __name__ == "__main__":
+    monitor_server()
+```
+
+### Logging
+
+The server logs to stdout. For production:
+
+```bash
+# Log to file
+python server.py > server.log 2>&1 &
+
+# Rotate logs
+logrotate -f /etc/logrotate.d/mili-qwen3
+```
+
+## Scaling
+
+### Vertical Scaling
+
+- **CPU**: More cores help with concurrent requests
+- **RAM**: 16GB+ recommended for model loading
+- **GPU**: T4, A100, or H100 for best performance
+- **Storage**: SSD recommended for model caching
+
+### Horizontal Scaling
+
+For high-traffic applications:
+
+1. **Load Balancer** (nginx/haproxy)
+```nginx
+upstream mili_backends {
+    server 127.0.0.1:9999;
+    server 127.0.0.1:10000;
+    server 127.0.0.1:10001;
+}
+```
+
+2. **Multiple Instances**
+```bash
+# Run multiple servers on different ports
+python server.py --port 9999 &
+python server.py --port 10000 &
+python server.py --port 10001 &
+```
+
+3. **Container Orchestration**
+```yaml
+# docker-compose.yml
+version: '3.8'
+services:
+  mili-qwen3:
+    image: mili-qwen3
+    deploy:
+      replicas: 3
+    ports:
+      - "9999-10001:9999"
+```
+
+## Security
+
+### Basic Security
+
+1. **Firewall Configuration**
+```bash
+# Allow only necessary ports
+sudo ufw allow 22/tcp    # SSH
+sudo ufw allow 80/tcp    # HTTP
+sudo ufw allow 443/tcp   # HTTPS
+sudo ufw --force enable
+```
+
+2. **SSL/TLS with Let's Encrypt**
+```bash
+# Install certbot
+sudo apt install certbot python3-certbot-nginx
+
+# Get certificate
+sudo certbot --nginx -d your-domain.com
+```
+
+3. **API Rate Limiting** (future enhancement)
+```python
+# Add to server.py
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.middleware import SlowAPIMiddleware
+
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
+```
 
 ## Troubleshooting
 
-| Issue | Solution |
-|-------|----------|
-| CUDA out of memory | Reduce batch size, enable quantization |
-| Slow generation | Check GPU utilization, profile kernels |
-| Server crashes | Check logs with `kubectl logs`, enable debug mode |
-| High latency | Reduce max_tokens, use streaming response |
+### Common Issues
 
----
+#### Model Loading Fails
+```bash
+# Check disk space
+df -h
 
-## References
+# Clear cache and retry
+rm -rf ~/.cache/huggingface/hub/models--Qwen--Qwen3-0.6B
+python server.py
+```
 
-- [FastAPI Documentation](https://fastapi.tiangolo.com/)
-- [Kubernetes Best Practices](https://kubernetes.io/docs/concepts/overview/working-with-objects/best-practices/)
-- [Docker Multi-stage Builds](https://docs.docker.com/build/building/multi-stage/)
+#### CUDA Out of Memory
+```bash
+# Use CPU fallback
+# Edit server.py: device = "cpu"
+
+# Or reduce model size
+# Change to Qwen/Qwen3-0.6B if using larger model
+```
+
+#### Port Already in Use
+```bash
+# Find process
+lsof -i :9999
+
+# Kill process
+kill -9 <PID>
+
+# Or change port
+python server.py --port 8000
+```
+
+#### Slow Inference
+- Check GPU utilization: `nvidia-smi`
+- Ensure model is on GPU: verify `device = "cuda"`
+- Reduce max_tokens for faster responses
+- Use lower temperature for simpler generation
