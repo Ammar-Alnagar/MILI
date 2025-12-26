@@ -219,7 +219,7 @@ class QwenTokenizer:
                 token = self.id_to_token[token_id]
                 
                 # Skip special tokens if requested
-                if skip_special_tokens and token in self.special_tokens.values():
+                if skip_special_tokens and token in self.special_tokens:
                     continue
                 
                 tokens.append(token)
