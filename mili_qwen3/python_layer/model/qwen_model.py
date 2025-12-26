@@ -314,10 +314,8 @@ class Qwen3Model:
         # Handle KV cache for decode mode
         if inference_mode == InferenceMode.DECODE and past_kv is not None:
             past_k, past_v = past_kv
-            # k = np.concatenate([past_k, k], axis=1)
-            # v = np.concatenate([past_v, v], axis=1)
-            k = k  # For now, ignore past KV
-            v = v
+            k = np.concatenate([past_k, k], axis=0)
+            v = np.concatenate([past_v, v], axis=0)
 
         cache_len = k.shape[0]
 
