@@ -15,7 +15,7 @@ A comprehensive, hands-on guide to building a high-performance LLM inference eng
 
 ```bash
 # Clone and setup
-git clone <repo-url>
+git clone [<repo-url>](https://github.com/Ammar-Alnagar/MILI.git)
 cd mili_qwen3
 
 # Create virtual environment
