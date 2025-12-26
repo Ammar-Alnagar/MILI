@@ -86,7 +86,7 @@ class InferenceEngine:
             if self._is_complete(request, output):
                 self.completed_requests[request_id] = output
                 del self.active_requests[request_id]
-                self.kv_cache.free_pages(request_id)
+                self.kv_cache.release_request(request_id)
                 completed.append((request_id, output))
             else:
                 # Update request state
