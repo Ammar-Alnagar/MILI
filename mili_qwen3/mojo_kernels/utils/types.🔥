@@ -19,8 +19,8 @@ struct DType:
     """GPU data type enumeration."""
     var value: UInt8
     
-    comptime float32 = DType(0)
-    comptime float16 = DType(1)
+    comptime float32 = DType { value: 0 }
+    comptime float16 = DType { value: 1 }
     comptime bfloat16 = DType { value: 2 }
     comptime int8 = DType { value: 3 }
     comptime uint8 = DType { value: 4 }

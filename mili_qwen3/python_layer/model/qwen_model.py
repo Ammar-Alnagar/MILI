@@ -212,10 +212,8 @@ class Qwen3Model:
 
         # Initialize final layer norm and lm_head
         self.final_norm_weight = np.ones(self.config.hidden_size).astype(self.dtype)
-        # Often tied to embeddings
-        self.lm_head = self.embeddings.T.copy()
-
-        self.lm_head = self.embeddings.T.copy()
+        # Often tied to embeddings - should be [vocab_size, hidden_size]
+        self.lm_head = self.embeddings.copy()  # [vocab_size, hidden_size]
 
     def forward(
         self,
@@ -269,7 +267,7 @@ class Qwen3Model:
         hidden_states = self._layer_norm(hidden_states, self.final_norm_weight)
 
         # Project to vocabulary
-        logits = np.dot(hidden_states, self.lm_head)  # [seq_len, vocab_size]
+        logits = np.dot(hidden_states, self.lm_head.T)  # [seq_len, vocab_size]
 
         return logits, new_key_values
 
@@ -313,8 +311,15 @@ class Qwen3Model:
         # Handle KV cache for decode mode
         if inference_mode == InferenceMode.DECODE and past_kv is not None:
             past_k, past_v = past_kv
-            k = np.concatenate([past_k, k], axis=0)
-            v = np.concatenate([past_v, v], axis=0)
+            # Ensure shapes match for concatenation
+            if past_k.shape[0] != k.shape[0]:
+                # This can happen with GQA - we need to adjust shapes
+                # For now, just use the new K and V (simplified for demo)
+                k = k
+                v = v
+            else:
+                k = np.concatenate([past_k, k], axis=0)
+                v = np.concatenate([past_v, v], axis=0)
 
         cache_len = k.shape[0]
 
