@@ -1,0 +1,376 @@
+"""
+Rotary Position Embeddings (RoPE) Kernel Implementation for MILI.
+Implements efficient GPU kernel for applying rotary embeddings to Q and K tensors.
+
+RoPE formula:
+- For position m and dimension 2i:
+  - theta_i = base^(-2i/d) where base = 10000
+  - RoPE(x, m) = [[cos(m*theta_i), -sin(m*theta_i)], [sin(m*theta_i), cos(m*theta_i)]] @ x
+"""
+
+from utils.types import (
+    DType, TensorMetadata, DeviceContext, KernelConfig, 
+    GPUConfig, ThreadIdx, BlockIdx
+)
+import math
+
+
+# ============================================================================
+# RoPE Kernel Configuration
+# ============================================================================
+
+@register_passable("trivial")
+struct RoPEConfig:
+    """Configuration for RoPE kernel execution."""
+    var rope_base: Float32  # Base for theta computation (10000.0)
+    var rope_dim: Int32     # Dimension for RoPE
+    var theta_scale: Float32  # Pre-computed scaling factor
+    var use_fp16: Bool      # Whether to use fp16 computation
+    var num_rotary_dims: Int32  # Number of dimensions to rotate
+    
+    fn __init__(
+        rope_base: Float32 = 10000.0,
+        rope_dim: Int32 = 128,
+        use_fp16: Bool = False
+    ) -> Self:
+        let theta_scale = 1.0 / rope_base
+        return Self(
+            rope_base=rope_base,
+            rope_dim=rope_dim,
+            theta_scale=theta_scale,
+            use_fp16=use_fp16,
+            num_rotary_dims=rope_dim
+        )
+
+
+# ============================================================================
+# RoPE Frequency Precomputation
+# ============================================================================
+
+struct RoPEFreqPrecompute:
+    """Precomputed RoPE frequencies for optimization."""
+    var freqs_cos: DTypePointer[DType.float32]
+    var freqs_sin: DTypePointer[DType.float32]
+    var max_seq_len: Int32
+    var head_dim: Int32
+    var rope_base: Float32
+    
+    fn __init__(
+        max_seq_len: Int32,
+        head_dim: Int32,
+        rope_base: Float32 = 10000.0
+    ) -> Self:
+        # Allocate memory for precomputed frequencies
+        let freq_size = (max_seq_len * head_dim) // 2
+        let freqs_cos = DTypePointer[DType.float32].alloc(freq_size)
+        let freqs_sin = DTypePointer[DType.float32].alloc(freq_size)
+        
+        # Precompute frequencies
+        for pos in range(max_seq_len):
+            for dim_idx in range(0, head_dim, 2):
+                let idx_pair = dim_idx // 2
+                
+                # Compute theta_i = base^(-2i/d)
+                let theta_numerator = Float32(2 * idx_pair)
+                let theta_denominator = Float32(head_dim)
+                let theta = 1.0 / pow(rope_base, theta_numerator / theta_denominator)
+                
+                # m * theta_i
+                let m_theta = Float32(pos) * theta
+                
+                # Store cos and sin values
+                let offset = pos * (head_dim // 2) + idx_pair
+                freqs_cos[offset] = cos(m_theta)
+                freqs_sin[offset] = sin(m_theta)
+        
+        return Self(
+            freqs_cos=freqs_cos,
+            freqs_sin=freqs_sin,
+            max_seq_len=max_seq_len,
+            head_dim=head_dim,
+            rope_base=rope_base
+        )
+    
+    fn __del__(owned self):
+        """Cleanup allocated memory."""
+        self.freqs_cos.free()
+        self.freqs_sin.free()
+    
+    fn get_freq_cos(self, pos: Int32, dim_idx: Int32) -> Float32:
+        """Get precomputed cos value."""
+        let offset = pos * (self.head_dim // 2) + (dim_idx // 2)
+        return self.freqs_cos[offset]
+    
+    fn get_freq_sin(self, pos: Int32, dim_idx: Int32) -> Float32:
+        """Get precomputed sin value."""
+        let offset = pos * (self.head_dim // 2) + (dim_idx // 2)
+        return self.freqs_sin[offset]
+
+
+# ============================================================================
+# RoPE Application Kernel
+# ============================================================================
+
+struct RoPEKernel:
+    """GPU kernel for applying Rotary Position Embeddings."""
+    
+    var context: DeviceContext
+    var metadata: TensorMetadata
+    var config: RoPEConfig
+    var freq_precompute: RoPEFreqPrecompute
+    
+    fn __init__(
+        context: DeviceContext,
+        metadata: TensorMetadata,
+        config: RoPEConfig,
+    ) -> Self:
+        let freq_precompute = RoPEFreqPrecompute(
+            max_seq_len=metadata.seq_length,
+            head_dim=metadata.head_dim,
+            rope_base=config.rope_base
+        )
+        return Self(
+            context=context,
+            metadata=metadata,
+            config=config,
+            freq_precompute=freq_precompute
+        )
+    
+    fn compute_rope_thread(
+        inout self,
+        thread_idx: Int32,
+        block_idx: Int32,
+        q_ptr: DTypePointer[DType.float32],
+        k_ptr: DTypePointer[DType.float32],
+        output_q: DTypePointer[DType.float32],
+        output_k: DTypePointer[DType.float32]
+    ):
+        """
+        Compute RoPE for a single thread.
+        Each thread processes one head dimension pair.
+        
+        CUDA-style kernel: threads process different dimensions in parallel.
+        """
+        let seq_len = self.metadata.seq_length
+        let head_dim = self.metadata.head_dim
+        let num_heads = self.metadata.num_heads
+        let batch_size = self.metadata.batch_size
+        
+        # Each thread handles one dimension pair across all positions
+        let dim_idx = thread_idx * 2
+        
+        if dim_idx >= head_dim:
+            return  # Out of bounds
+        
+        // Process all batches, all heads, all positions
+        for batch in range(batch_size):
+            for head in range(num_heads):
+                for pos in range(seq_len):
+                    // Calculate linear offsets
+                    // Shape: [batch, seq_len, num_heads, head_dim]
+                    let offset = batch * seq_len * num_heads * head_dim 
+                               + pos * num_heads * head_dim 
+                               + head * head_dim
+                               + dim_idx
+                    
+                    // Load Q and K values (2D vector for rotation)
+                    let q_x = q_ptr[offset]
+                    let q_y = q_ptr[offset + 1]
+                    let k_x = k_ptr[offset]
+                    let k_y = k_ptr[offset + 1]
+                    
+                    // Get precomputed cos and sin for this position and dimension
+                    let cos_theta = self.freq_precompute.get_freq_cos(pos, dim_idx)
+                    let sin_theta = self.freq_precompute.get_freq_sin(pos, dim_idx)
+                    
+                    // Apply rotation: (x, y) -> (x*cos - y*sin, x*sin + y*cos)
+                    let q_rotated_x = q_x * cos_theta - q_y * sin_theta
+                    let q_rotated_y = q_x * sin_theta + q_y * cos_theta
+                    let k_rotated_x = k_x * cos_theta - k_y * sin_theta
+                    let k_rotated_y = k_x * sin_theta + k_y * cos_theta
+                    
+                    // Store results
+                    output_q[offset] = q_rotated_x
+                    output_q[offset + 1] = q_rotated_y
+                    output_k[offset] = k_rotated_x
+                    output_k[offset + 1] = k_rotated_y
+    
+    fn kernel_launch(
+        inout self,
+        q_ptr: DTypePointer[DType.float32],
+        k_ptr: DTypePointer[DType.float32],
+        output_q: DTypePointer[DType.float32],
+        output_k: DTypePointer[DType.float32],
+        seq_length: Int32
+    ):
+        """
+        Launch the RoPE kernel with CUDA-style grid/block structure.
+        
+        Grid structure:
+        - Each block handles one head
+        - Each thread handles one dimension pair
+        - Threads work in parallel across all positions
+        """
+        let head_dim = self.metadata.head_dim
+        let num_threads = (head_dim + 1) // 2  // Pairs of dimensions
+        
+        // Configure for CUDA-style execution
+        let block_size = min(256, num_threads)
+        let grid_size = (num_threads + block_size - 1) // block_size
+        
+        self.context.config.block_size_x = Int32(block_size)
+        self.context.config.grid_size_x = Int32(grid_size)
+        
+        // Execute kernel on each thread
+        for block_idx in range(grid_size):
+            for thread_idx in range(block_size):
+                let global_thread_id = block_idx * block_size + thread_idx
+                if global_thread_id < num_threads:
+                    self.compute_rope_thread(
+                        global_thread_id,
+                        block_idx,
+                        q_ptr,
+                        k_ptr,
+                        output_q,
+                        output_k
+                    )
+    
+    fn forward(
+        inout self,
+        q_ptr: DTypePointer[DType.float32],
+        k_ptr: DTypePointer[DType.float32],
+        output_q: DTypePointer[DType.float32],
+        output_k: DTypePointer[DType.float32],
+        seq_length: Int32
+    ):
+        """
+        Forward pass: apply RoPE to query and key tensors.
+        
+        Args:
+            q_ptr: Query tensor [batch, seq_len, num_heads, head_dim]
+            k_ptr: Key tensor [batch, seq_len, num_heads, head_dim]
+            output_q: Output query with RoPE applied
+            output_k: Output key with RoPE applied
+            seq_length: Current sequence length
+        """
+        // Update metadata with actual sequence length
+        self.metadata.seq_length = seq_length
+        
+        // Launch the kernel
+        self.kernel_launch(q_ptr, k_ptr, output_q, output_k, seq_length)
+    
+    fn apply_rope_in_place(
+        inout self,
+        q_ptr: DTypePointer[DType.float32],
+        k_ptr: DTypePointer[DType.float32],
+        seq_length: Int32
+    ):
+        """
+        Apply RoPE in-place to query and key tensors.
+        Overwrites input tensors with rotated values.
+        """
+        // For in-place operation, we use same pointers for input and output
+        self.forward(q_ptr, k_ptr, q_ptr, k_ptr, seq_length)
+
+
+# ============================================================================
+# Interleaved RoPE Variant (for interleaved embeddings)
+# ============================================================================
+
+struct RoPEInterleavedKernel:
+    """
+    RoPE kernel for interleaved embedding layout.
+    Alternative memory layout where rotary and non-rotary dims are interleaved.
+    """
+    
+    var base_kernel: RoPEKernel
+    var interleave_pattern: DynamicVector[Int32]
+    
+    fn __init__(
+        base_kernel: RoPEKernel,
+        interleave_pattern: DynamicVector[Int32]
+    ) -> Self:
+        return Self(
+            base_kernel=base_kernel,
+            interleave_pattern=interleave_pattern
+        )
+    
+    fn forward(
+        inout self,
+        q_ptr: DTypePointer[DType.float32],
+        k_ptr: DTypePointer[DType.float32],
+        output_q: DTypePointer[DType.float32],
+        output_k: DTypePointer[DType.float32],
+        seq_length: Int32
+    ):
+        """Apply RoPE with interleaved pattern."""
+        // Implementation for interleaved layout
+        // For now, delegate to base kernel
+        self.base_kernel.forward(q_ptr, k_ptr, output_q, output_k, seq_length)
+
+
+# ============================================================================
+# Utility Functions
+# ============================================================================
+
+fn compute_rope_theta(
+    dim_idx: Int32,
+    head_dim: Int32,
+    rope_base: Float32 = 10000.0
+) -> Float32:
+    """
+    Compute theta value for a given dimension.
+    theta_i = base^(-2i/d)
+    """
+    let inv_freq_scale = 1.0 / pow(rope_base, 2.0 * Float32(dim_idx) / Float32(head_dim))
+    return inv_freq_scale
+
+
+fn apply_rope_2d(
+    x: Float32,
+    y: Float32,
+    cos_theta: Float32,
+    sin_theta: Float32,
+) -> Tuple[Float32, Float32]:
+    """
+    Apply 2D rotation to a pair of values.
+    
+    Rotation matrix:
+    [cos  -sin] [x]
+    [sin   cos] [y]
+    """
+    let rotated_x = x * cos_theta - y * sin_theta
+    let rotated_y = x * sin_theta + y * cos_theta
+    return (rotated_x, rotated_y)
+
+
+fn compute_position_embeddings(
+    positions: DynamicVector[Int32],
+    head_dim: Int32,
+    rope_base: Float32 = 10000.0
+) -> Tuple[DTypePointer[DType.float32], DTypePointer[DType.float32]]:
+    """
+    Precompute cos and sin values for all positions.
+    
+    Returns:
+        Tuple of (cos_values_ptr, sin_values_ptr)
+    """
+    let num_positions = len(positions)
+    let cos_ptr = DTypePointer[DType.float32].alloc(num_positions * head_dim)
+    let sin_ptr = DTypePointer[DType.float32].alloc(num_positions * head_dim)
+    
+    for pos_idx in range(num_positions):
+        let pos = positions[pos_idx]
+        for dim_idx in range(0, head_dim, 2):
+            let theta = compute_rope_theta(dim_idx, head_dim, rope_base)
+            let m_theta = Float32(pos) * theta
+            
+            let offset = pos_idx * head_dim + dim_idx
+            cos_ptr[offset] = cos(m_theta)
+            sin_ptr[offset] = sin(m_theta)
+            
+            if dim_idx + 1 < head_dim:
+                cos_ptr[offset + 1] = cos(m_theta)
+                sin_ptr[offset + 1] = sin(m_theta)
+    
+    return (cos_ptr, sin_ptr)

@@ -1,0 +1,38 @@
+{
+  "inference": {
+    "device": "cuda",
+    "dtype": "float16",
+    "max_batch_size": 64,
+    "max_seq_length": 32768,
+    "prefill_batch_size": 32,
+    "decode_batch_size": 256
+  },
+  
+  "kv_cache": {
+    "page_size": 16,
+    "num_pages": 1024,
+    "allocation_strategy": "best_fit",
+    "eviction_policy": "lru"
+  },
+  
+  "optimization": {
+    "use_flash_attention": true,
+    "use_gqa": true,
+    "use_rope": true,
+    "use_rmsnorm": true,
+    "use_fused_kernels": true
+  },
+  
+  "sampling": {
+    "temperature": 1.0,
+    "top_p": 0.95,
+    "top_k": 50,
+    "repetition_penalty": 1.0
+  },
+  
+  "performance": {
+    "enable_profiling": false,
+    "enable_monitoring": true,
+    "profile_interval": 100
+  }
+}
