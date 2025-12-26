@@ -270,7 +270,7 @@ class InferenceEngine:
             return 0.0
         
         # Simple estimate based on active requests
-        return len(self.active_requests) * 50.0  # Placeholder
+        return 0.0  # Placeholder - TODO: Implement real throughput calculation
 
 
 @dataclass
