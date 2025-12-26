@@ -122,7 +122,7 @@ error: Type mismatch in kernel
 
 ```bash
 # 1. Enable verbose output
-mojo build -v core/rope.🔥 -o lib/rope.so
+mojo build -v core/rope. -o lib/rope.so
 
 # 2. Check for syntax errors
 # Review the specific line mentioned in error
@@ -134,7 +134,7 @@ mojo build -v core/rope.🔥 -o lib/rope.so
 # Start with minimal version and add features
 
 # 5. Use debug symbols
-mojo build -g core/rope.🔥 -o lib/rope.so
+mojo build -g core/rope. -o lib/rope.so
 
 # 6. Check MAX version compatibility
 modular info
@@ -374,9 +374,9 @@ print(f"Decoded:   {decoded}")
 
 # Check for exact match (may differ due to whitespace handling)
 if test_text.lower() in decoded.lower():
-    print("✓ Round-trip successful")
+    print(" Round-trip successful")
 else:
-    print("✗ Round-trip failed")
+    print(" Round-trip failed")
 
 # 3. Check token ID ranges
 vocab_size = tokenizer.vocab_size

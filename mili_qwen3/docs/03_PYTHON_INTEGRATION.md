@@ -88,7 +88,7 @@ async def startup():
     global model, tokenizer
 
     try:
-        print("🚀 Initializing Qwen3 Inference Server...")
+        print(" Initializing Qwen3 Inference Server...")
 
         # Load model and tokenizer from HuggingFace
         model_path = "Qwen/Qwen3-0.6B"
@@ -96,7 +96,7 @@ async def startup():
 
         # Load tokenizer
         tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
-        print("✅ Tokenizer loaded")
+        print(" Tokenizer loaded")
 
         # Load model
         device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -108,12 +108,12 @@ async def startup():
             device_map=device,
             trust_remote_code=True,
         )
-        print("✅ Model loaded")
+        print(" Model loaded")
 
-        print(f"📊 Model: {model.config.num_hidden_layers} layers, {model.config.hidden_size} hidden, {model.config.vocab_size} vocab")
+        print(f" Model: {model.config.num_hidden_layers} layers, {model.config.hidden_size} hidden, {model.config.vocab_size} vocab")
 
     except Exception as e:
-        print(f"❌ Failed to initialize model: {e}")
+        print(f" Failed to initialize model: {e}")
         import traceback
         traceback.print_exc()
         raise
@@ -139,7 +139,7 @@ async def generate(request: GenerationRequest):
         # Move to same device as model
         inputs = {k: v.to(model.device) for k, v in inputs.items()}
         prompt_tokens = inputs["input_ids"][0].tolist()
-        print(f"📝 Prompt: '{request.prompt}' ({len(prompt_tokens)} tokens)")
+        print(f" Prompt: '{request.prompt}' ({len(prompt_tokens)} tokens)")
 
         # Generate
         with torch.no_grad():
@@ -169,7 +169,7 @@ async def generate(request: GenerationRequest):
         )
 
     except Exception as e:
-        print(f"❌ Generation error: {e}")
+        print(f" Generation error: {e}")
         import traceback
 
         traceback.print_exc()
@@ -204,7 +204,7 @@ async def root():
 if __name__ == "__main__":
     import uvicorn
 
-    print("🎯 Starting MILI Qwen3 Inference Server...")
+    print(" Starting MILI Qwen3 Inference Server...")
     uvicorn.run(app, host="0.0.0.0", port=9999)
 ```
 

@@ -2,7 +2,7 @@
 
 # Mojo Kernel Guide (Legacy)
 
-**⚠️ Note**: This guide describes the original Mojo kernel implementation that is **no longer used** in the current codebase. The current implementation uses HuggingFace transformers directly for inference.
+** Note**: This guide describes the original Mojo kernel implementation that is **no longer used** in the current codebase. The current implementation uses HuggingFace transformers directly for inference.
 
 This guide is kept for historical reference and potential future optimizations.
 
@@ -10,11 +10,11 @@ This guide is kept for historical reference and potential future optimizations.
 
 This guide walked through implementing GPU kernels in Mojo for the MILI inference system. Mojo provides a Python-like syntax while offering C-level performance and direct GPU programming capabilities.
 
-## ⚠️ Important Notice
+##  Important Notice
 
 **All code examples in this document are hypothetical implementations that were planned but never actually built.** The current codebase contains only stub functions as placeholders. For example:
 
-**Actual implementation in `mojo_kernels/core/attention.🔥`:**
+**Actual implementation in `mojo_kernels/core/attention.`:**
 ```mojo
 """
 Attention kernel stub for MILI.
@@ -50,16 +50,16 @@ The stub files are intended as starting points for future development when Mojo 
 ```
 mojo_kernels/
 ├── core/
-│   ├── attention.🔥
-│   ├── rope.🔥
-│   ├── activations.🔥
-│   └── normalization.🔥
+│   ├── attention.
+│   ├── rope.
+│   ├── activations.
+│   └── normalization.
 ├── memory/
-│   ├── kv_cache.🔥
-│   └── allocator.🔥
+│   ├── kv_cache.
+│   └── allocator.
 ├── utils/
-│   ├── types.🔥
-│   └── helpers.🔥
+│   ├── types.
+│   └── helpers.
 └── build.sh              # Build script
 ```
 
@@ -113,15 +113,15 @@ compile_mojo() {
     # Compile with optimization flags
     echo -e "${YELLOW}Running: mojo build -O3 -o ${lib_dir}/${output_name}.so ${mojo_file}${NC}"
     if output=$(mojo build -O3 -o "${lib_dir}/${output_name}.so" "${mojo_file}" 2>&1); then
-        echo -e "${GREEN}✓ Successfully compiled: ${output_name}${NC}"
+        echo -e "${GREEN} Successfully compiled: ${output_name}${NC}"
         return 0
     else
         # Check if the error is just "no main function" (expected for libraries)
         if echo "$output" | grep -q "module does not contain a 'main' function"; then
-            echo -e "${GREEN}✓ Successfully compiled: ${output_name} (library module)${NC}"
+            echo -e "${GREEN} Successfully compiled: ${output_name} (library module)${NC}"
             return 0
         else
-            echo -e "${RED}✗ Failed to compile: ${mojo_file}${NC}"
+            echo -e "${RED} Failed to compile: ${mojo_file}${NC}"
             echo -e "${RED}$output${NC}"
             return 1
         fi
@@ -130,24 +130,24 @@ compile_mojo() {
 
 # Compile utility types first (dependency for other kernels)
 echo -e "${BLUE}[1/6] Compiling utility types...${NC}"
-compile_mojo "${SCRIPT_DIR}/utils/types.🔥" "types" "${LIB_DIR}" || exit 1
+compile_mojo "${SCRIPT_DIR}/utils/types." "types" "${LIB_DIR}" || exit 1
 
 # Compile core kernels
 echo -e "${BLUE}[2/6] Compiling RoPE kernel...${NC}"
-compile_mojo "${SCRIPT_DIR}/core/rope.🔥" "rope" "${LIB_DIR}" || exit 1
+compile_mojo "${SCRIPT_DIR}/core/rope." "rope" "${LIB_DIR}" || exit 1
 
 echo -e "${BLUE}[3/6] Compiling RMSNorm kernel...${NC}"
-compile_mojo "${SCRIPT_DIR}/core/normalization.🔥" "rmsnorm" "${LIB_DIR}" || exit 1
+compile_mojo "${SCRIPT_DIR}/core/normalization." "rmsnorm" "${LIB_DIR}" || exit 1
 
 echo -e "${BLUE}[4/6] Compiling SwiGLU activation kernel...${NC}"
-compile_mojo "${SCRIPT_DIR}/core/activations.🔥" "activations" "${LIB_DIR}" || exit 1
+compile_mojo "${SCRIPT_DIR}/core/activations." "activations" "${LIB_DIR}" || exit 1
 
 echo -e "${BLUE}[5/6] Compiling Attention kernels (FlashAttention, Decode)...${NC}"
-compile_mojo "${SCRIPT_DIR}/core/attention.🔥" "attention" "${LIB_DIR}" || exit 1
+compile_mojo "${SCRIPT_DIR}/core/attention." "attention" "${LIB_DIR}" || exit 1
 
 # Compile memory management kernels
 echo -e "${BLUE}[6/6] Compiling Paged KV Cache kernel...${NC}"
-compile_mojo "${SCRIPT_DIR}/memory/kv_cache.🔥" "kv_cache" "${LIB_DIR}" || exit 1
+compile_mojo "${SCRIPT_DIR}/memory/kv_cache." "kv_cache" "${LIB_DIR}" || exit 1
 ```
 
 echo "All kernels compiled successfully!"
@@ -156,7 +156,7 @@ ls -lah lib/*/
 
 ### 1.3 Type Definitions
 
-**File: `mojo_kernels/utils/types.🔥`**
+**File: `mojo_kernels/utils/types.`**
 
 The current implementation contains basic stub types:
 
@@ -233,13 +233,13 @@ struct DeviceContext:
 
 ### 2.1 Rotary Position Embeddings (RoPE)
 
-**File: `mojo_kernels/core/rope.🔥`**
+**File: `mojo_kernels/core/rope.`**
 
 RoPE applies rotations to query and key embeddings based on position.
 
 **Note**: The current RoPE implementation is a stub placeholder.
 
-**File: `mojo_kernels/core/rope.🔥`** (Actual implementation)
+**File: `mojo_kernels/core/rope.`** (Actual implementation)
 
 ```mojo
 """
@@ -327,7 +327,7 @@ fn apply_rope_stub():
 
 ### 2.2 RMSNorm Kernel
 
-**File: `mojo_kernels/core/normalization.🔥`**
+**File: `mojo_kernels/core/normalization.`**
 
 **Note**: The current RMSNorm implementation is a stub placeholder.
 
@@ -384,7 +384,7 @@ fn rms_norm_stub():
 
 ### 2.3 SwiGLU Activation Kernel
 
-**File: `mojo_kernels/core/activations.🔥`**
+**File: `mojo_kernels/core/activations.`**
 
 SwiGLU is a gating activation function that improves model expressivity.
 
@@ -437,7 +437,7 @@ struct SwiGLUKernel:
 
 ### 3.1 FlashAttention Prefill Kernel
 
-**File: `mlio_kernels/core/attention.🔥`**
+**File: `mlio_kernels/core/attention.`**
 
 This implements efficient attention for the prefill phase using tiled computation.
 
@@ -654,7 +654,7 @@ struct DecodeAttentionKernel:
 
 ### 4.1 KV Cache Structure
 
-**File: `mojo_kernels/memory/kv_cache.🔥`**
+**File: `mojo_kernels/memory/kv_cache.`**
 
 ```mojo
 """KV Cache management for paged attention."""
@@ -737,7 +737,7 @@ struct PagedKVCache:
 To compile a kernel:
 
 ```bash
-mojo build -o lib/core/rope.so core/rope.🔥 -D max_unroll=4
+mojo build -o lib/core/rope.so core/rope. -D max_unroll=4
 ```
 
 **Useful Mojo compiler flags:**
@@ -890,7 +890,7 @@ shared_buffer = allocate_shared_memory(size)
 
 ```bash
 # Compile with debug symbols
-mojo build -g -o lib/core/rope.so core/rope.🔥
+mojo build -g -o lib/core/rope.so core/rope.
 
 # Run with CUDA debug symbols
 CUDA_LAUNCH_BLOCKING=1 python test_script.py

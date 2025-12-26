@@ -217,9 +217,9 @@ t1 = benchmark_kernel(attention_v1, q, k, v)
 t2 = benchmark_kernel(attention_v2, q, k, v)
 
 if t2 < t1:
-    print(f"✓ V2 is {t1/t2:.2f}x faster")
+    print(f" V2 is {t1/t2:.2f}x faster")
 else:
-    print("✗ V2 is slower, keep V1")
+    print(" V2 is slower, keep V1")
 ```
 
 **Anti-pattern: Optimization without measurement**

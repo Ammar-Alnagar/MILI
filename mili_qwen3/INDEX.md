@@ -1,6 +1,6 @@
 # MILI Project - Complete Index & Navigation Guide
 
-**Project Status**: ✅ **COMPLETE AND READY FOR IMPLEMENTATION**
+**Project Status**:  **COMPLETE AND READY FOR IMPLEMENTATION**
 
 **Generated**: December 26, 2025  
 **Version**: 0.1.0 (Initial Complete Release)  
@@ -10,7 +10,7 @@
 
 ---
 
-## 🎯 Start Here
+##  Start Here
 
 ### For First-Time Users
 1. **Read**: [`README.md`](README.md) (5 minutes) - Quick overview
@@ -25,7 +25,7 @@
 
 ---
 
-## 📚 Documentation Map
+##  Documentation Map
 
 ### Main Guides (Read in Order)
 
@@ -50,11 +50,11 @@
 
 ---
 
-## 🗂️ Directory Structure
+##  Directory Structure
 
 ```
 mili_qwen3/
-├── docs/                    # 📚 Complete guides (12,000+ lines)
+├── docs/                    #  Complete guides (12,000+ lines)
 │   ├── 01_PROJECT_OVERVIEW.md
 │   ├── 02_MOJO_KERNEL_GUIDE.md
 │   ├── 03_PYTHON_INTEGRATION.md
@@ -62,34 +62,34 @@ mili_qwen3/
 │   ├── 05_KV_CACHE_MANAGEMENT.md
 │   └── 06_DEPLOYMENT.md
 │
-├── python_layer/            # 🐍 Python packages
+├── python_layer/            #  Python packages
 │   ├── model/              # Config, weights, model
 │   ├── inference/          # Scheduler, sampler
 │   ├── tokenizer/          # Tokenization
 │   ├── server/             # FastAPI server
 │   └── utils/              # Utilities
 │
-├── tests/                   # ✅ Test structure
+├── tests/                   #  Test structure
 │   ├── unit/               # Unit tests
 │   ├── integration/        # Integration tests
 │   └── performance/        # Benchmarks
 │
-├── mojo_kernels/            # 🚀 GPU kernels
+├── mojo_kernels/            #  GPU kernels
 │   ├── core/               # Attention, RoPE, etc.
 │   ├── memory/             # KV cache, allocator
 │   ├── utils/              # Types, helpers
 │   └── build.sh            # Build script
 │
-├── deployment/              # 🐳 Deployment
+├── deployment/              #  Deployment
 │   ├── docker/             # Docker configs
 │   └── kubernetes/         # K8s manifests
 │
-├── config/                  # ⚙️ Configuration
+├── config/                  #  Configuration
 │   ├── model_config.json
 │   └── inference_config.json
 │
-├── examples/                # 💡 Examples (templates)
-├── mojo_llm_guide/          # 📖 Reference guides
+├── examples/                #  Examples (templates)
+├── mojo_llm_guide/          #  Reference guides
 │
 ├── requirements.txt         # Dependencies
 ├── pyproject.toml          # Python config
@@ -102,7 +102,7 @@ mili_qwen3/
 
 ---
 
-## 🎓 Learning Paths
+##  Learning Paths
 
 ### Path 1: Complete Implementation (10-12 weeks)
 **For**: Engineers wanting to build everything from scratch
@@ -182,7 +182,7 @@ Week 3:     Integration
 
 ---
 
-## 🔍 Quick Reference
+##  Quick Reference
 
 ### What Each Document Covers
 
@@ -243,7 +243,7 @@ Week 3:     Integration
 
 ---
 
-## 💻 Quick Commands
+##  Quick Commands
 
 ### Setup
 ```bash
@@ -277,7 +277,7 @@ kubectl apply -f deployment/kubernetes/
 
 ---
 
-## 📊 Project Statistics
+##  Project Statistics
 
 ### Documentation
 - **Total Lines**: 12,000+
@@ -300,32 +300,32 @@ kubectl apply -f deployment/kubernetes/
 
 ---
 
-## ✨ Key Features
+##  Key Features
 
-✅ **Comprehensive**: 12,000+ lines of documentation  
-✅ **Hands-On**: 100+ working code examples  
-✅ **Progressive**: From basics to production  
-✅ **Practical**: Real-world implementations  
-✅ **Complete**: Full system from kernels to deployment  
+ **Comprehensive**: 12,000+ lines of documentation  
+ **Hands-On**: 100+ working code examples  
+ **Progressive**: From basics to production  
+ **Practical**: Real-world implementations  
+ **Complete**: Full system from kernels to deployment  
 
 ---
 
-## 🎯 Success Criteria
+##  Success Criteria
 
 You've successfully completed MILI when you can:
 
-- ✅ Understand transformer architecture
-- ✅ Write GPU kernels in Mojo
-- ✅ Build continuous batching scheduler
-- ✅ Implement paged KV cache with prefix sharing
-- ✅ Deploy FastAPI inference server
-- ✅ Run in Docker & Kubernetes
-- ✅ Generate text from Qwen3-like model
-- ✅ Achieve performance targets
+-  Understand transformer architecture
+-  Write GPU kernels in Mojo
+-  Build continuous batching scheduler
+-  Implement paged KV cache with prefix sharing
+-  Deploy FastAPI inference server
+-  Run in Docker & Kubernetes
+-  Generate text from Qwen3-like model
+-  Achieve performance targets
 
 ---
 
-## 🔗 External Resources
+##  External Resources
 
 ### Papers
 - [FlashAttention](https://arxiv.org/abs/2205.14135)
@@ -346,7 +346,7 @@ You've successfully completed MILI when you can:
 
 ---
 
-## 📝 File Organization
+##  File Organization
 
 ### By Purpose
 
@@ -367,7 +367,7 @@ You've successfully completed MILI when you can:
 
 ---
 
-## 🚀 Getting Started
+##  Getting Started
 
 ### Immediate (Next 5 minutes)
 1. Read this INDEX.md
@@ -392,7 +392,7 @@ You've successfully completed MILI when you can:
 
 ---
 
-## ❓ FAQ
+##  FAQ
 
 **Q: Where do I start?**  
 A: Start with `README.md`, then `01_PROJECT_OVERVIEW.md`, then follow your chosen learning path.
@@ -414,7 +414,7 @@ A: Yes, all code follows production patterns. Docker/K8s configs included.
 
 ---
 
-## 📞 Support
+##  Support
 
 - **Documentation**: See `docs/` folder
 - **Issues**: Refer to troubleshooting in `06_DEPLOYMENT.md`
@@ -423,22 +423,22 @@ A: Yes, all code follows production patterns. Docker/K8s configs included.
 
 ---
 
-## 🎉 Project Status
+##  Project Status
 
 | Component | Status | Completeness |
 |-----------|--------|--------------|
-| Documentation | ✅ Complete | 100% |
-| Project Structure | ✅ Complete | 100% |
-| Configuration | ✅ Complete | 100% |
-| Deployment Templates | ✅ Complete | 100% |
-| Code Examples | ✅ Complete | 100% |
-| Guides & Tutorials | ✅ Complete | 100% |
+| Documentation |  Complete | 100% |
+| Project Structure |  Complete | 100% |
+| Configuration |  Complete | 100% |
+| Deployment Templates |  Complete | 100% |
+| Code Examples |  Complete | 100% |
+| Guides & Tutorials |  Complete | 100% |
 
-**Overall Status**: ✅ **READY FOR IMPLEMENTATION**
+**Overall Status**:  **READY FOR IMPLEMENTATION**
 
 ---
 
-## 🏁 Next Steps
+##  Next Steps
 
 1. **Read** [`README.md`](README.md) (5 minutes)
 2. **Read** [`docs/01_PROJECT_OVERVIEW.md`](docs/01_PROJECT_OVERVIEW.md) (30 minutes)
@@ -449,6 +449,6 @@ A: Yes, all code follows production patterns. Docker/K8s configs included.
 
 ---
 
-**Happy building! 🚀**
+**Happy building! **
 
 *For detailed information, see the comprehensive guides in the `docs/` folder.*

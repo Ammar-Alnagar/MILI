@@ -155,14 +155,14 @@ mili_qwen3/
 │
 ├── mojo_kernels/                       # Legacy Mojo kernels (not used)
 │   ├── core/
-│   │   ├── activations.🔥
-│   │   ├── attention.🔥
-│   │   ├── normalization.🔥
-│   │   └── rope.🔥
+│   │   ├── activations.
+│   │   ├── attention.
+│   │   ├── normalization.
+│   │   └── rope.
 │   ├── memory/
-│   │   └── kv_cache.🔥
+│   │   └── kv_cache.
 │   ├── utils/
-│   │   └── types.🔥
+│   │   └── types.
 │   ├── build.sh
 │   └── test_simple.mojo
 │

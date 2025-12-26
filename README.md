@@ -1,8 +1,8 @@
 # MILI: Machine Learning Inference Lattice for Qwen3
 
-A comprehensive, hands-on guide to building a high-performance LLM inference system in Mojo and Python.
+A comprehensive, hands-on guide to building a high-performance LLM inference engine in Mojo and Python.
 
-## 🚀 Quick Start
+##  Quick Start
 
 ### Prerequisites
 
@@ -49,146 +49,167 @@ curl -X POST http://localhost:8000/generate \
 
 ---
 
-## 📚 Documentation Structure
+##  Documentation Structure
 
 This project is organized as a progressive learning guide:
 
-### 1. **[Project Overview](docs/01_PROJECT_OVERVIEW.md)** ⭐ START HERE
-   - High-level architecture
-   - System design principles
-   - Project organization
-   - Prerequisites and setup
+### 1. **[Project Overview](docs/01_PROJECT_OVERVIEW.md)** - START HERE
+    - High-level architecture
+    - System design principles
+    - Project organization
+    - Prerequisites and setup
 
-### 2. **[Mojo Kernel Guide](docs/02_MOJO_KERNEL_GUIDE.md)** - GPU Kernels
-   - Foundation & setup
-   - RoPE implementation
-   - RMSNorm kernels
-   - SwiGLU activation
-   - FlashAttention prefill
-   - Decode-phase attention
-   - Memory management
+### 2. **[Mojo Kernel Guide](docs/02_MOJO_KERNEL_GUIDE.md)** - GPU Kernels (Legacy)
+    - Foundation & setup
+    - RoPE implementation
+    - RMSNorm kernels
+    - SwiGLU activation
+    - FlashAttention prefill
+    - Decode-phase attention
+    - Memory management
 
 ### 3. **[Python Integration Guide](docs/03_PYTHON_INTEGRATION.md)** - Python Layer
-   - Model architecture & config
-   - Weight loading
-   - Tokenization (tiktoken)
-   - Request scheduler (continuous batching)
-   - Sampling strategies
-   - Model class integration
+    - Model architecture & config
+    - Weight loading
+    - Tokenization (tiktoken)
+    - Request scheduler (continuous batching)
+    - Sampling strategies
+    - Model class integration
 
 ### 4. **[Attention Mechanisms](docs/04_ATTENTION_MECHANISMS.md)** - Deep Dive
-   - Scaled dot-product attention
-   - Grouped Query Attention (GQA)
-   - FlashAttention optimization
-   - Decode-phase optimization
-   - Multi-request attention
-   - Performance benchmarks
+    - Scaled dot-product attention
+    - Grouped Query Attention (GQA)
+    - FlashAttention optimization
+    - Decode-phase optimization
+    - Multi-request attention
+    - Performance benchmarks
 
 ### 5. **[KV Cache Management](docs/05_KV_CACHE_MANAGEMENT.md)** - Memory Efficiency
-   - Paged KV cache
-   - RadixAttention for prefix sharing
-   - Reference counting
-   - Allocation strategies
-   - Eviction policies
-   - Integration with inference loop
+    - Paged KV cache
+    - RadixAttention for prefix sharing
+    - Reference counting
+    - Allocation strategies
+    - Eviction policies
+    - Integration with inference loop
 
 ### 6. **[Deployment Guide](docs/06_DEPLOYMENT.md)** - Production Ready
-   - FastAPI server setup
-   - Docker containerization
-   - Kubernetes deployment
-   - GPU optimization
-   - Monitoring & metrics
-   - Load testing
+    - FastAPI server setup
+    - Docker containerization
+    - Kubernetes deployment
+    - GPU optimization
+    - Monitoring & metrics
+    - Load testing
+
+### 7. **[Advanced Optimization](docs/07_ADVANCED_OPTIMIZATION.md)** - Performance Tuning
+    - Kernel optimization techniques
+    - Memory bandwidth optimization
+    - Parallel processing strategies
+
+### 8. **[Troubleshooting and Debugging](docs/08_TROUBLESHOOTING_AND_DEBUGGING.md)** - Common Issues
+    - Environment setup problems
+    - Kernel compilation issues
+    - Python integration bugs
+    - Server deployment issues
+    - Performance bottlenecks
+
+### 9. **[API Reference](docs/09_API_REFERENCE.md)** - Complete API Docs
+    - Server endpoints
+    - Request/response formats
+    - Configuration options
+    - Error handling
+
+### 10. **[Best Practices and Patterns](docs/10_BEST_PRACTICES_AND_PATTERNS.md)** - Production Patterns
+    - Code organization
+    - Testing strategies
+    - Deployment best practices
+    - Performance monitoring
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 mili_qwen3/
-├── docs/                           # Complete guides
+├── config/                         # Configuration files
+│   ├── inference_config.json       # Inference settings
+│   └── model_config.json           # Model configuration
+│
+├── docs/                           # Documentation
 │   ├── 01_PROJECT_OVERVIEW.md
 │   ├── 02_MOJO_KERNEL_GUIDE.md
 │   ├── 03_PYTHON_INTEGRATION.md
 │   ├── 04_ATTENTION_MECHANISMS.md
 │   ├── 05_KV_CACHE_MANAGEMENT.md
-│   └── 06_DEPLOYMENT.md
+│   ├── 06_DEPLOYMENT.md
+│   ├── 07_ADVANCED_OPTIMIZATION.md
+│   ├── 08_TROUBLESHOOTING_AND_DEBUGGING.md
+│   ├── 09_API_REFERENCE.md
+│   └── 10_BEST_PRACTICES_AND_PATTERNS.md
 │
-├── mojo_kernels/                   # GPU kernel implementations
-│   ├── core/                       # Core compute kernels
-│   │   ├── attention.🔥           # FlashAttention, etc.
-│   │   ├── rope.🔥                # Rotary Position Embeddings
-│   │   ├── activations.🔥         # SwiGLU, GELU, etc.
-│   │   └── normalization.🔥       # RMSNorm
-│   ├── memory/                     # Memory management
-│   │   ├── kv_cache.🔥            # Paged KV cache
-│   │   └── allocator.🔥           # Memory allocator
-│   ├── utils/                      # Utilities
-│   │   ├── types.🔥               # Type definitions
-│   │   └── helpers.🔥             # Helper functions
-│   └── build.sh                    # Build script
+├── examples/                       # Example scripts
+│   └── basic_inference.py          # Basic inference example
 │
-├── python_layer/                   # Legacy Python components (not used)
-│   ├── model/
-│   │   ├── __init__.py
-│   │   ├── config.py               # Qwen3Config
-│   │   ├── weight_loader.py        # Weight management
-│   │   └── qwen3_model.py          # Model class
+├── mojo_kernels/                   # Mojo kernel implementations (legacy)
+│   ├── core/
+│   │   ├── activations.🔥
+│   │   ├── attention.🔥
+│   │   ├── normalization.🔥
+│   │   └── rope.🔥
+│   ├── memory/
+│   │   └── kv_cache.🔥
+│   ├── utils/
+│   │   └── types.🔥
+│   ├── build.sh
+│   └── test_simple.mojo
+│
+├── python_layer/                   # Python components
 │   ├── inference/
 │   │   ├── __init__.py
-│   │   ├── scheduler.py            # Request scheduler
-│   │   ├── sampler.py              # Sampling strategies
-│   │   └── cache_manager.py        # Cache manager
-│   ├── tokenizer/
+│   │   └── inference_engine.py
+│   ├── memory/
 │   │   ├── __init__.py
-│   │   └── qwen_tokenizer.py       # Tokenizer wrapper
+│   │   └── kv_cache_manager.py
+│   ├── model/
+│   │   ├── __init__.py
+│   │   ├── qwen_model.py
+│   │   └── weight_loader.py
 │   ├── server/
 │   │   ├── __init__.py
-│   │   ├── api.py                  # FastAPI server
-│   │   └── handlers.py             # Request handlers
+│   │   └── api.py
+│   ├── tokenizer/
+│   │   ├── __init__.py
+│   │   └── qwen_tokenizer.py
 │   └── utils/
-│       ├── __init__.py
-│       └── logging.py              # Logging utilities
+│       └── __init__.py
 │
-├── tests/
-│   ├── unit/                       # Unit tests
-│   │   ├── test_kernels.py
-│   │   ├── test_cache.py
-│   │   └── test_scheduler.py
-│   ├── integration/                # Integration tests
-│   │   ├── test_end_to_end.py
+├── tests/                          # Test suites
+│   ├── integration/
+│   │   ├── __init__.py
 │   │   └── test_inference.py
-│   └── performance/                # Performance benchmarks
-│       ├── benchmark_kernels.py
-│       └── benchmark_e2e.py
+│   ├── performance/
+│   │   └── __init__.py
+│   ├── unit/
+│   │   ├── __init__.py
+│   │   └── test_tokenizer.py
+│   └── __init__.py
 │
-├── examples/
-│   ├── simple_generation.py        # Basic generation
-│   ├── batch_processing.py         # Batch processing
-│   └── streaming_response.py       # Streaming generation
-│
-├── deployment/
-│   ├── docker/
-│   │   ├── Dockerfile
-│   │   └── docker-compose.yml
-│   └── kubernetes/
-│       ├── deployment.yaml
-│       └── service.yaml
-│
-├── config/
-│   ├── model_config.json           # Model configuration
-│   ├── inference_config.json       # Inference settings
-│   └── server_config.yaml          # Server configuration
-│
-├── requirements.txt                # Python dependencies
+├── DELIVERABLES.txt                # Project deliverables
+├── IMPLEMENTATION_GUIDE.md         # Implementation guide
+├── INDEX.md                        # Project index
 ├── pyproject.toml                  # Python project config
-├── LICENSE
-└── README.md                       # This file
+├── requirements.txt                # Python dependencies
+├── server.py                       # Main inference server
+├── STRUCTURE.md                    # Project structure
+├── test_project.py                 # Project test script
+├── test_qwen3_local.py             # Local Qwen3 test
+├── test_real_weights.py            # Weight loading test
+├── verify_implementation.py        # Implementation verification
+└── verify_simple.py                # Simple verification
 ```
 
 ---
 
-## 🎯 Learning Path
+##  Learning Path
 
 ### Week 1-2: Foundation
 - [ ] Read Project Overview
@@ -233,7 +254,7 @@ mili_qwen3/
 
 ---
 
-## 🔧 Development Commands
+##  Development Commands
 
 ### Building
 
@@ -286,19 +307,19 @@ python tests/performance/load_test.py --num-requests 1000 --concurrent 50
 
 ---
 
-## 📊 Performance Targets
+##  Performance Targets
 
 | Metric | Target | Status |
 |--------|--------|--------|
-| Prefill Throughput | > 100K tokens/sec | 🎯 |
-| Decode Throughput | > 50 tokens/sec (1 req) | 🎯 |
-| Batch Decode | > 5K tokens/sec (batch 64) | 🎯 |
-| E2E Latency | < 1s (512 + 128 tokens) | 🎯 |
-| Memory Efficiency | < 90% VRAM (batch 64) | 🎯 |
+| Prefill Throughput | > 100K tokens/sec |  |
+| Decode Throughput | > 50 tokens/sec (1 req) |  |
+| Batch Decode | > 5K tokens/sec (batch 64) |  |
+| E2E Latency | < 1s (512 + 128 tokens) |  |
+| Memory Efficiency | < 90% VRAM (batch 64) |  |
 
 ---
 
-## 🐳 Docker Quick Start
+##  Docker Quick Start
 
 ```bash
 # Build image
@@ -313,7 +334,7 @@ docker-compose -f deployment/docker/docker-compose.yml up
 
 ---
 
-## ☸️ Kubernetes Deployment
+##  Kubernetes Deployment
 
 ```bash
 # Deploy
@@ -329,7 +350,7 @@ kubectl port-forward svc/mili-inference 8000:80
 
 ---
 
-## 🧪 Example Usage
+##  Example Usage
 
 ### Simple Generation
 
@@ -337,7 +358,7 @@ kubectl port-forward svc/mili-inference 8000:80
 # Using the API server
 import requests
 
-response = requests.post("http://localhost:9999/generate", json={
+response = requests.post("http://localhost:8000/generate", json={
     "prompt": "What is the meaning of life?",
     "max_tokens": 100,
     "temperature": 0.7
@@ -378,7 +399,7 @@ curl -X POST http://localhost:8000/generate \
 
 ---
 
-## 📝 Key Concepts
+##  Key Concepts
 
 ### Continuous Batching
 Dynamically add/remove requests as they complete, maximizing GPU utilization.
@@ -397,7 +418,7 @@ Reduce KV cache size by using fewer KV heads than query heads.
 
 ---
 
-## 🤝 Contributing
+##  Contributing
 
 Contributions welcome! Areas to help:
 
@@ -410,7 +431,7 @@ Contributions welcome! Areas to help:
 
 ---
 
-## 📚 References
+##  References
 
 ### Papers
 - [Attention Is All You Need](https://arxiv.org/abs/1706.03762) - Transformer architecture
@@ -426,13 +447,13 @@ Contributions welcome! Areas to help:
 
 ---
 
-## ⚖️ License
+##  License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
-## 🙋 Support
+##  Support
 
 - **Issues**: Report bugs or feature requests
 - **Discussions**: Ask questions and share ideas
@@ -440,7 +461,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-## 🎓 Acknowledgments
+##  Acknowledgments
 
 This project builds upon research from:
 - Modular AI team (Mojo language)
@@ -450,6 +471,6 @@ This project builds upon research from:
 
 ---
 
-**Happy inferencing! 🚀**
+**Happy inferencing! **
 
 For a detailed walkthrough, start with [01_PROJECT_OVERVIEW.md](docs/01_PROJECT_OVERVIEW.md).

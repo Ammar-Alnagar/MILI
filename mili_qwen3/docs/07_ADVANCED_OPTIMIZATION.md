@@ -23,7 +23,7 @@ Host Memory              : GB+ scale, slowest
 ```python
 """Demonstrating coalesced vs. non-coalesced memory access."""
 
-# ❌ BAD: Non-coalesced access (strided)
+#  BAD: Non-coalesced access (strided)
 def non_coalesced_read(data):
     """Threads read non-contiguous memory."""
     stride = 32
@@ -32,7 +32,7 @@ def non_coalesced_read(data):
         values.append(data[i * stride])  # Each thread accesses different bank
     return values
 
-# ✅ GOOD: Coalesced access (contiguous)
+#  GOOD: Coalesced access (contiguous)
 def coalesced_read(data):
     """Threads read contiguous memory."""
     values = []
