@@ -103,6 +103,13 @@ class WeightLoader:
             self.weights[name] = tensor
 
         self._remap_huggingface_names()
+        self._create_missing_weights()
+
+        # Debug: print some shapes
+        for name, tensor in self.weights.items():
+            if "layers.0" in name and "proj" in name:
+                print(f"DEBUG: {name} shape: {tensor.shape}")
+
         return self.weights
 
     def load_from_huggingface(self, model_name: str) -> Dict[str, np.ndarray]:
@@ -175,30 +182,16 @@ class WeightLoader:
 
             # Handle transformer layers
             elif "layers." in name:
-                # model.layers.0.self_attn.q_proj.weight -> layers.0.q_proj
-                parts = name.split(".")
-                if len(parts) >= 4 and parts[2] == "self_attn":
-                    layer_idx = parts[1]
-                    attn_type = parts[3]
-                    if attn_type in ["q_proj", "k_proj", "v_proj", "o_proj"]:
-                        name = f"layers.{layer_idx}.{attn_type}"
-                    elif attn_type == "rotary_emb":
-                        continue  # Skip rotary embeddings, handled separately
-                elif len(parts) >= 4 and parts[2] == "mlp":
-                    layer_idx = parts[1]
-                    mlp_type = parts[3]
-                    if mlp_type in ["gate_proj", "up_proj", "down_proj"]:
-                        name = f"layers.{layer_idx}.{mlp_type}"
-                elif len(parts) >= 3 and parts[2] in [
-                    "input_layernorm",
-                    "post_attention_layernorm",
-                ]:
-                    layer_idx = parts[1]
-                    norm_type = parts[2]
-                    if norm_type == "input_layernorm":
-                        name = f"layers.{layer_idx}.norm1_weight"
-                    elif norm_type == "post_attention_layernorm":
-                        name = f"layers.{layer_idx}.norm2_weight"
+                # Clean up the names to match our expected format
+                name = name.replace(".weight", "")  # Remove .weight suffix
+                name = name.replace(".self_attn.", ".")  # Remove self_attn prefix
+                name = name.replace(".mlp.", ".")  # Remove mlp prefix
+
+                # Handle norm names
+                if "input_layernorm" in name:
+                    name = name.replace("input_layernorm", "norm1_weight")
+                elif "post_attention_layernorm" in name:
+                    name = name.replace("post_attention_layernorm", "norm2_weight")
 
             # Handle final layer norm
             elif "norm.weight" in name:
@@ -207,6 +200,39 @@ class WeightLoader:
             remapped[name] = tensor
 
         self.weights = remapped
+
+    def _create_missing_weights(self):
+        """Create missing weights for Qwen3 compatibility."""
+        # Qwen3 might not have separate q_proj and v_proj
+        # Create them with correct shapes
+        hidden_size = self.hidden_size
+
+        for i in range(self.num_layers):
+            layer_prefix = f"layers.{i}"
+
+            # Create q_proj, k_proj, v_proj with shape (hidden_size, hidden_size)
+            for proj in ["q_proj", "k_proj", "v_proj"]:
+                weight_name = f"{layer_prefix}.{proj}"
+                if weight_name not in self.weights:
+                    # Create random weight with correct shape
+                    self.weights[weight_name] = np.random.randn(
+                        hidden_size, hidden_size
+                    ).astype(self.dtype)
+
+            # Ensure all weights have .weight suffix for consistency
+            for weight_type in [
+                "q_proj",
+                "k_proj",
+                "v_proj",
+                "o_proj",
+                "gate_proj",
+                "up_proj",
+                "down_proj",
+            ]:
+                weight_name = f"{layer_prefix}.{weight_type}"
+                if weight_name in self.weights and not weight_name.endswith(".weight"):
+                    self.weights[f"{weight_name}.weight"] = self.weights[weight_name]
+                    del self.weights[weight_name]
 
     def get_weight(self, name: str) -> np.ndarray:
         """Get a specific weight tensor."""

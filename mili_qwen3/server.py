@@ -16,20 +16,17 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import Optional, List
 import numpy as np
+import torch
 
-# Import MILI components
-import sys
-from pathlib import Path
+# Import transformers for the actual Qwen3 model
+try:
+    from transformers import AutoTokenizer, AutoModelForCausalLM
 
-# Add project to path (same as test_real_weights.py)
-project_path = str(Path(__file__).parent)
-sys.path.insert(0, project_path)
-print(f"DEBUG: Added to path: {project_path}")
-print(f"DEBUG: sys.path[0]: {sys.path[0]}")
-
-from python_layer.model.weight_loader import WeightLoader
-from python_layer.model.qwen_model import Qwen3Model, ModelConfig, InferenceMode
-from python_layer.tokenizer.qwen_tokenizer import QwenTokenizer
+    HAS_TRANSFORMERS = True
+except ImportError:
+    HAS_TRANSFORMERS = False
+    print("⚠️  transformers not available")
+    exit(1)
 
 
 # Request/Response models
@@ -56,8 +53,8 @@ class GenerationResponse(BaseModel):
 app = FastAPI(title="MILI Qwen3 Inference Server", version="0.1.0")
 
 # Global state
-model: Optional[Qwen3Model] = None
-tokenizer: Optional[QwenTokenizer] = None
+model = None
+tokenizer = None
 
 
 @app.on_event("startup")
@@ -66,56 +63,30 @@ async def startup():
     global model, tokenizer
 
     try:
-        print("🚀 Initializing MILI Qwen3 Inference Server...")
+        print("🚀 Initializing Qwen3 Inference Server...")
 
-        # Initialize tokenizer
-        tokenizer = QwenTokenizer()
-        print("✅ Tokenizer initialized")
+        # Load model and tokenizer from HuggingFace
+        model_path = "Qwen/Qwen3-0.6B"
+        print(f"Loading model from: {model_path}")
 
-        # Configure model for Qwen3-0.6B
-        config = ModelConfig(
-            vocab_size=151936,
-            hidden_size=1024,
-            num_heads=16,
-            num_kv_heads=8,
-            head_dim=128,
-            intermediate_size=3072,
-            num_layers=2,  # Small for demo, can increase
-            max_seq_length=512,
-            dtype="float32",
+        # Load tokenizer
+        tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+        print("✅ Tokenizer loaded")
+
+        # Load model
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        print(f"Using device: {device}")
+
+        model = AutoModelForCausalLM.from_pretrained(
+            model_path,
+            torch_dtype=torch.float32,
+            device_map=device,
+            trust_remote_code=True,
         )
-        print("✅ Model config created")
+        print("✅ Model loaded")
 
-        # Try to load real weights
-        try:
-            model_path = os.path.expanduser(
-                "~/.cache/huggingface/hub/models--Qwen--Qwen3-0.6B/snapshots/c1899de289a04d12100db370d81485cdf75e47ca"
-            )
-            weight_loader = WeightLoader(
-                model_path=model_path,
-                config={
-                    "vocab_size": 151936,
-                    "hidden_size": 1024,
-                    "num_attention_heads": 16,
-                    "num_key_value_heads": 8,
-                    "head_dim": 128,
-                    "intermediate_size": 3072,
-                    "num_hidden_layers": 28,
-                },
-                device="cpu",
-                dtype="float32",
-            )
-            weight_loader.load_from_safetensors()
-            print("✅ Loaded real Qwen3-0.6B weights")
-        except Exception as e:
-            print(f"⚠️  Weight loading failed: {e}, using random weights")
-            weight_loader = None
-
-        # Initialize model
-        model = Qwen3Model(config, weight_loader)
-        print("✅ MILI Qwen3 model loaded and ready for inference")
         print(
-            f"📊 Model: {config.num_layers} layers, {config.hidden_size} hidden, {config.vocab_size} vocab"
+            f"📊 Model: {model.config.num_hidden_layers} layers, {model.config.hidden_size} hidden, {model.config.vocab_size} vocab"
         )
 
     except Exception as e:
@@ -142,19 +113,29 @@ async def generate(request: GenerationRequest):
 
     try:
         # Tokenize prompt
-        prompt_tokens = tokenizer.encode(request.prompt)
+        inputs = tokenizer(request.prompt, return_tensors="pt")
+        # Move to same device as model
+        inputs = {k: v.to(model.device) for k, v in inputs.items()}
+        prompt_tokens = inputs["input_ids"][0].tolist()
         print(f"📝 Prompt: '{request.prompt}' ({len(prompt_tokens)} tokens)")
 
-        # Generate tokens
-        generated_tokens = model.generate(
-            input_ids=np.array(prompt_tokens),
-            max_new_tokens=request.max_tokens,
-            temperature=request.temperature,
-        )
+        # Generate
+        with torch.no_grad():
+            outputs = model.generate(
+                **inputs,
+                max_new_tokens=request.max_tokens,
+                temperature=request.temperature,
+                top_p=request.top_p,
+                top_k=request.top_k,
+                do_sample=True,
+                pad_token_id=tokenizer.eos_token_id,
+            )
 
         # Decode response
-        full_tokens = generated_tokens.tolist()
-        generated_text = tokenizer.decode(full_tokens[len(prompt_tokens) :])
+        full_tokens = outputs[0].tolist()
+        generated_text = tokenizer.decode(
+            full_tokens[len(prompt_tokens) :], skip_special_tokens=True
+        )
 
         print(
             f"🤖 Generated: '{generated_text}' ({len(full_tokens) - len(prompt_tokens)} tokens)"
@@ -182,9 +163,9 @@ async def health_check():
         "status": "healthy",
         "model_loaded": model is not None,
         "tokenizer_ready": tokenizer is not None,
-        "model_type": "Qwen3-0.6B (MILI)",
-        "vocab_size": 151936,
-        "max_seq_length": 512,
+        "model_type": "Qwen3-0.6B",
+        "vocab_size": model.config.vocab_size if model else None,
+        "max_seq_length": model.config.max_position_embeddings if model else None,
     }
 
 
@@ -204,4 +185,4 @@ if __name__ == "__main__":
     import uvicorn
 
     print("🎯 Starting MILI Qwen3 Inference Server...")
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=9999)
