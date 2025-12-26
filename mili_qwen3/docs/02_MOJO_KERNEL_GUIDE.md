@@ -1,8 +1,14 @@
 # Mojo Kernel Development Guide for MILI
 
-## Introduction
+# Mojo Kernel Guide (Legacy)
 
-This guide walks you through implementing GPU kernels in Mojo for the MILI inference system. Mojo provides a Python-like syntax while offering C-level performance and direct GPU programming capabilities.
+**⚠️ Note**: This guide describes the original Mojo kernel implementation that is **no longer used** in the current codebase. The current implementation uses HuggingFace transformers directly for inference.
+
+This guide is kept for historical reference and potential future optimizations.
+
+## Original Introduction
+
+This guide walked through implementing GPU kernels in Mojo for the MILI inference system. Mojo provides a Python-like syntax while offering C-level performance and direct GPU programming capabilities.
 
 ### Why Mojo for GPU Kernels?
 

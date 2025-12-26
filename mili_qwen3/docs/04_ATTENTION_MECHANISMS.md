@@ -1,8 +1,12 @@
 # Attention Mechanisms Guide for MILI
 
-## Overview
+# Attention Mechanisms (Legacy)
 
-This guide explains the attention mechanisms used in MILI, focusing on:
+**Note**: This guide describes attention mechanisms that were planned for the original implementation. The current system uses HuggingFace transformers' optimized attention implementations.
+
+## Original Overview
+
+This guide explained the attention mechanisms used in MILI, focusing on:
 1. **Standard Scaled Dot-Product Attention** (baseline)
 2. **Grouped Query Attention (GQA)** (Qwen3 specific)
 3. **FlashAttention** (optimized prefill)

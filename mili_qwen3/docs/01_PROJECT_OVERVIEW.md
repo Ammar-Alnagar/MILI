@@ -2,19 +2,19 @@
 
 ## Overview
 
-This comprehensive guide walks you through building a **MILI (Machine Learning Inference Lattice)** implementation optimized for the **Qwen3 architecture**. MILI is a high-performance inference system designed to efficiently serve large language models with minimal latency and maximum throughput.
+This guide walks you through building a **MILI (Machine Learning Inference Lattice)** inference server for the **Qwen3 language model**. MILI provides a production-ready inference system that leverages HuggingFace transformers for efficient model serving with GPU acceleration.
 
-This project emphasizes **hands-on learning** through manual implementation of optimized kernels in Mojo and Python, enabling you to understand the internals of modern LLM inference systems.
+This project focuses on **practical deployment** of large language models, providing a complete inference pipeline from model loading to API serving, while maintaining high performance and scalability.
 
 ### What You'll Build
 
-By completing this guide, you will have:
+By following this guide, you will have:
 
-1. **High-Performance Mojo Kernels** for GPU-accelerated attention and matrix operations
-2. **Python Integration Layer** for model management and request scheduling
-3. **KV Cache Management System** with RadixAttention and prefix sharing
-4. **Request Scheduler** supporting continuous batching and speculative decoding
-5. **Fully Functional Inference Server** capable of serving Qwen3-like models
+1. **HuggingFace Integration** for loading and running Qwen3 models
+2. **GPU-Accelerated Inference** with automatic device management
+3. **FastAPI Server** with RESTful endpoints for text generation
+4. **Tokenizer Integration** using official Qwen3 tokenizers
+5. **Production-Ready Deployment** with health checks and monitoring
 
 ---
 
@@ -22,27 +22,29 @@ By completing this guide, you will have:
 
 ### Model Characteristics
 
-- **Decoder-Only Transformer** architecture
-- **Grouped Query Attention (GQA)**: Reduces KV cache size while maintaining quality
-- **Rotary Position Embeddings (RoPE)**: Efficient positional encoding
-- **SwiGLU Activation**: Modern feedforward layer activation
-- **RMSNorm Normalization**: Efficient layer normalization
-- **Vocabulary**: ~150,000 tokens (using tiktoken)
-- **Hidden Dimension**: Configurable (typically 4096-8192)
-- **Number of Layers**: Configurable (typically 32-80)
-- **Number of Attention Heads**: Configurable with GQA support
+- **Official Qwen3 Model**: Uses the actual Qwen/Qwen3-0.6B model from HuggingFace
+- **Decoder-Only Transformer** architecture with GQA and RoPE
+- **Optimized for Inference**: Pre-trained and optimized by Alibaba Cloud
+- **Standard Interface**: Compatible with transformers library
+- **GPU Acceleration**: Automatic CUDA support when available
+- **Vocabulary Size**: 151,936 tokens
+- **Context Length**: Up to 40,960 tokens
+- **Model Size**: 0.6B parameters (lightweight for demos and development)
 
-### Key Parameters to Configure
+### Current Configuration
+
+The server currently loads Qwen/Qwen3-0.6B with these specifications:
 
 ```
-MODEL CONFIG:
-- hidden_size: 4096
-- intermediate_size: 11008
-- num_attention_heads: 32
-- num_key_value_heads: 8  # For GQA
-- num_hidden_layers: 32
-- vocab_size: 150000
-- max_position_embeddings: 32768
+MODEL CONFIG (Qwen3-0.6B):
+- hidden_size: 1024
+- intermediate_size: 3072
+- num_attention_heads: 16
+- num_key_value_heads: 8  # GQA enabled
+- num_hidden_layers: 28
+- vocab_size: 151936
+- max_position_embeddings: 40960
+- rope_theta: 1000000.0
 ```
 
 ---
@@ -58,42 +60,26 @@ MODEL CONFIG:
 │                                                                   │
 │  ┌──────────────────────────────────────────────────────────┐   │
 │  │              FastAPI Server Layer                        │   │
-│  │  - Request handling                                      │   │
-│  │  - Response formatting                                   │   │
+│  │  - RESTful API endpoints                                 │   │
+│  │  - Request validation and response formatting            │   │
+│  │  - Health checks and monitoring                          │   │
 │  └──────────────────────────────────────────────────────────┘   │
 │                              ↓                                    │
 │  ┌──────────────────────────────────────────────────────────┐   │
-│  │         Python Request Scheduler (Continuous Batching)  │   │
-│  │  - Request queue management                             │   │
-│  │  - Dynamic batching                                      │   │
-│  │  - Prefill/Decode phase management                       │   │
+│  │         HuggingFace Transformers Layer                  │   │
+│  │  - AutoTokenizer for text encoding/decoding             │   │
+│  │  - AutoModelForCausalLM for inference                    │   │
+│  │  - Automatic device management (CPU/GPU)                │   │
 │  └──────────────────────────────────────────────────────────┘   │
 │                              ↓                                    │
 │  ┌──────────────────────────────────────────────────────────┐   │
-│  │              Python Model Layer                          │   │
-│  │  - Weight loading (safetensors/HuggingFace)             │   │
-│  │  - Tokenizer integration (tiktoken)                      │   │
-│  │  - Sampling strategies (top-p, top-k, temperature)      │   │
+│  │              Model Management                            │   │
+│  │  - Automatic model downloading and caching              │   │
+│  │  - Weight loading and optimization                       │   │
+│  │  - Memory-efficient inference                            │   │
 │  └──────────────────────────────────────────────────────────┘   │
 │                              ↓                                    │
-│  ┌──────────────────────────────────────────────────────────┐   │
-│  │         GPU Memory Management                            │   │
-│  │  - Paged KV Cache (16-token blocks)                      │   │
-│  │  - RadixAttention prefix sharing                         │   │
-│  │  - Reference counting for cache blocks                   │   │
-│  └──────────────────────────────────────────────────────────┘   │
-│                              ↓                                    │
-│  ┌──────────────────────────────────────────────────────────┐   │
-│  │         Mojo GPU Kernels                                 │   │
-│  │  ├─ FlashAttention (Prefill)                             │   │
-│  │  ├─ Decode-Phase Attention                               │   │
-│  │  ├─ RoPE Application                                     │   │
-│  │  ├─ RMSNorm                                              │   │
-│  │  ├─ SwiGLU Activation                                    │   │
-│  │  └─ Optimized GEMM operations                            │   │
-│  └──────────────────────────────────────────────────────────┘   │
-│                              ↓                                    │
-│              GPU (NVIDIA/AMD with Mojo GPU Support)              │
+│              GPU/CPU (NVIDIA CUDA or CPU fallback)               │
 │                                                                   │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -104,48 +90,42 @@ MODEL CONFIG:
 
 ### Hardware Requirements
 
-- **GPU**: NVIDIA GPU (Compute Capability 8.0+) or AMD GPU with GCN support
-  - Recommended: A100, H100, or RTX 4090
-  - Minimum Memory: 24GB VRAM for inference
-- **CPU**: Modern multi-core processor (Intel or AMD)
-- **RAM**: 32GB+ for model weights and batching
+- **GPU**: NVIDIA GPU with CUDA support (optional but recommended)
+  - Minimum: RTX 3060 (12GB VRAM)
+  - Recommended: RTX 4070 or higher
+- **CPU**: Modern multi-core processor (Intel i5/AMD Ryzen 5 or better)
+- **RAM**: 16GB+ for model loading and inference
+- **Storage**: 5GB+ for model weights and dependencies
 
 ### Software Prerequisites
 
 Before starting, ensure you have:
 
-1. **Mojo SDK**
-   ```bash
-   # Install from Modular
-   curl https://docs.modular.com/mojo/install.sh | bash
-   ```
+1. **Python 3.8+**
+    ```bash
+    python --version  # Should be 3.8 or higher
+    ```
 
-2. **MAX for GPU Support**
-   ```bash
-   modular install max
-   ```
+2. **CUDA Toolkit** (for GPU acceleration, optional)
+    ```bash
+    nvidia-smi  # Verify CUDA installation (optional)
+    ```
 
-3. **Python 3.10+**
-   ```bash
-   python --version  # Should be 3.10 or higher
-   ```
-
-4. **CUDA Toolkit** (for NVIDIA GPUs)
-   ```bash
-   nvidia-smi  # Verify installation
-   ```
+3. **Git** (for cloning repositories)
+    ```bash
+    git --version
+    ```
 
 ### Python Dependencies
 
 ```
-torch>=2.0.0          # For reference implementations
-transformers>=4.35.0  # For model loading
-safetensors>=0.4.0    # For weight loading
-tiktoken>=0.5.0       # For tokenization
-fastapi>=0.104.0      # For API server
-uvicorn>=0.24.0       # For ASGI server
-numpy>=1.24.0         # For numerical operations
-pytest>=7.4.0         # For testing
+torch>=2.0.0          # PyTorch for tensor operations
+transformers>=4.35.0  # HuggingFace transformers for model loading
+fastapi>=0.104.0      # FastAPI for the web server
+uvicorn>=0.24.0       # ASGI server for FastAPI
+pydantic>=2.0.0       # Data validation
+numpy>=1.24.0         # Numerical operations
+pytest>=7.4.0         # Testing framework (optional)
 ```
 
 ---
@@ -154,82 +134,80 @@ pytest>=7.4.0         # For testing
 
 ```
 mili_qwen3/
+├── config/
+│   ├── model_config.json               # Model configuration (legacy)
+│   └── inference_config.json           # Inference settings (legacy)
+│
 ├── docs/
 │   ├── 01_PROJECT_OVERVIEW.md          # This file
-│   ├── 02_MOJO_KERNEL_GUIDE.md         # Mojo kernel development
+│   ├── 02_MOJO_KERNEL_GUIDE.md         # Mojo kernel development (legacy)
 │   ├── 03_PYTHON_INTEGRATION.md        # Python layer setup
-│   ├── 04_ATTENTION_MECHANISMS.md      # Detailed attention docs
-│   ├── 05_KV_CACHE_MANAGEMENT.md       # Cache system docs
-│   └── 06_DEPLOYMENT.md                # Deployment guide
-│
-├── mojo_kernels/
-│   ├── core/
-│   │   ├── attention.🔥               # FlashAttention kernels
-│   │   ├── rope.🔥                    # RoPE kernels
-│   │   ├── activations.🔥             # Activation functions
-│   │   └── normalization.🔥           # RMSNorm kernels
-│   ├── memory/
-│   │   ├── kv_cache.🔥                # KV cache management
-│   │   └── allocator.🔥               # Memory allocator
-│   └── utils/
-│       ├── types.🔥                   # Type definitions
-│       └── helpers.🔥                 # Utility functions
-│
-├── python_layer/
-│   ├── model/
-│   │   ├── __init__.py
-│   │   ├── qwen3_model.py              # Model architecture
-│   │   ├── weight_loader.py            # Weight management
-│   │   └── config.py                   # Model configuration
-│   ├── inference/
-│   │   ├── __init__.py
-│   │   ├── scheduler.py                # Request scheduler
-│   │   ├── sampler.py                  # Sampling strategies
-│   │   └── cache_manager.py            # Cache management
-│   ├── tokenizer/
-│   │   ├── __init__.py
-│   │   └── qwen_tokenizer.py           # Tokenizer wrapper
-│   ├── server/
-│   │   ├── __init__.py
-│   │   ├── api.py                      # FastAPI server
-│   │   └── handlers.py                 # Request handlers
-│   └── utils/
-│       ├── __init__.py
-│       └── logging.py                  # Logging utilities
-│
-├── tests/
-│   ├── unit/
-│   │   ├── test_kernels.py             # Kernel tests
-│   │   ├── test_cache.py               # Cache tests
-│   │   └── test_scheduler.py           # Scheduler tests
-│   ├── integration/
-│   │   ├── test_end_to_end.py         # E2E tests
-│   │   └── test_inference.py           # Inference tests
-│   └── performance/
-│       ├── benchmark_kernels.py        # Kernel benchmarks
-│       └── benchmark_e2e.py            # E2E benchmarks
+│   ├── 04_ATTENTION_MECHANISMS.md      # Attention docs (legacy)
+│   ├── 05_KV_CACHE_MANAGEMENT.md       # Cache docs (legacy)
+│   ├── 06_DEPLOYMENT.md                # Deployment guide
+│   ├── 07_ADVANCED_OPTIMIZATION.md     # Optimization guide (legacy)
+│   ├── 08_TROUBLESHOOTING_AND_DEBUGGING.md
+│   ├── 09_API_REFERENCE.md             # API documentation
+│   └── 10_BEST_PRACTICES_AND_PATTERNS.md
 │
 ├── examples/
-│   ├── simple_generation.py            # Basic generation example
-│   ├── batch_processing.py             # Batch processing example
-│   └── streaming_response.py           # Streaming example
+│   └── basic_inference.py              # Basic generation example
 │
-├── deployment/
-│   ├── docker/
-│   │   ├── Dockerfile                  # Production Docker image
-│   │   └── docker-compose.yml          # Multi-service setup
-│   └── kubernetes/
-│       ├── deployment.yaml             # K8s deployment
-│       └── service.yaml                # K8s service
+├── mojo_kernels/                       # Legacy Mojo kernels (not used)
+│   ├── core/
+│   │   ├── activations.🔥
+│   │   ├── attention.🔥
+│   │   ├── normalization.🔥
+│   │   └── rope.🔥
+│   ├── memory/
+│   │   └── kv_cache.🔥
+│   ├── utils/
+│   │   └── types.🔥
+│   ├── build.sh
+│   └── test_simple.mojo
 │
-├── config/
-│   ├── model_config.json               # Model configuration
-│   ├── inference_config.json           # Inference settings
-│   └── server_config.yaml              # Server settings
+├── python_layer/                       # Legacy Python components
+│   ├── inference/
+│   │   ├── __init__.py
+│   │   └── inference_engine.py
+│   ├── memory/
+│   │   ├── __init__.py
+│   │   └── kv_cache_manager.py
+│   ├── model/
+│   │   ├── __init__.py
+│   │   ├── qwen_model.py
+│   │   └── weight_loader.py
+│   ├── server/
+│   │   ├── __init__.py
+│   │   └── api.py
+│   ├── tokenizer/
+│   │   ├── __init__.py
+│   │   └── qwen_tokenizer.py
+│   └── utils/
+│       └── __init__.py
+│
+├── tests/
+│   ├── integration/
+│   │   ├── __init__.py
+│   │   └── test_inference.py
+│   ├── performance/
+│   │   └── __init__.py
+│   ├── unit/
+│   │   ├── __init__.py
+│   │   └── test_tokenizer.py
+│   └── __init__.py
 │
 ├── requirements.txt                    # Python dependencies
 ├── pyproject.toml                      # Python project config
-└── README.md                           # Quick start guide
+├── server.py                           # Main inference server
+├── test_real_weights.py               # Weight loading test
+├── verify_implementation.py           # Implementation verification
+├── verify_simple.py                   # Simple verification
+├── IMPLEMENTATION_GUIDE.md           # Implementation guide
+├── INDEX.md                           # Project index
+├── STRUCTURE.md                       # Project structure
+├── DELIVERABLES.txt                   # Deliverables checklist
+└── README.md                          # Quick start guide
 ```
 
 ---
@@ -294,57 +272,50 @@ mili_qwen3/
 
 ## Development Workflow
 
-### Phase 1: Foundation (Weeks 1-2)
+### Phase 1: Setup and Basic Server (Day 1)
 
-1. Set up Mojo environment and build system
-2. Implement basic type definitions and memory utilities
-3. Create foundational kernels (RoPE, RMSNorm)
-4. Write unit tests for each component
+1. Set up Python environment and install dependencies
+2. Clone the MILI repository and explore the codebase
+3. Run the basic inference server locally
+4. Test the API endpoints with sample requests
 
-### Phase 2: Attention Kernels (Weeks 3-4)
+### Phase 2: Understanding the Codebase (Day 2)
 
-1. Implement FlashAttention for prefill phase
-2. Implement decode-phase attention
-3. Add grouped query attention support
-4. Benchmark against baselines
+1. Examine the server.py implementation
+2. Understand how transformers integration works
+3. Review the configuration and model loading
+4. Test different generation parameters
 
-### Phase 3: Python Integration (Weeks 5-6)
+### Phase 3: Customization and Extension (Day 3-4)
 
-1. Build model loading and weight management
-2. Implement request scheduler with continuous batching
-3. Create sampling strategies
-4. Add tokenizer integration
+1. Modify server configuration for different models
+2. Add custom preprocessing/postprocessing
+3. Implement additional API endpoints
+4. Add monitoring and logging features
 
-### Phase 4: System Integration (Weeks 7-8)
+### Phase 4: Production Deployment (Day 5)
 
-1. Build KV cache manager with RadixAttention
-2. Implement request scheduler
-3. Create FastAPI inference server
-4. Integration testing
-
-### Phase 5: Optimization & Deployment (Weeks 9-10)
-
-1. Performance profiling and optimization
-2. Memory optimization
-3. Docker containerization
-4. Deployment documentation
+1. Containerize the application with Docker
+2. Set up production server configuration
+3. Implement health checks and monitoring
+4. Deploy to cloud infrastructure
 
 ---
 
 ## Performance Targets
 
-### Inference Metrics
+### Inference Metrics (Qwen3-0.6B)
 
-- **Prefill Throughput**: > 100K tokens/sec/GPU
-- **Decode Throughput**: > 50 tokens/sec (single request)
-- **Batch Decode Throughput**: > 5K tokens/sec (batch of 64)
-- **E2E Latency**: < 1 second for 512-token prompt + 128 token generation
+- **Prefill Throughput**: 500-2000 tokens/sec (depends on hardware)
+- **Decode Throughput**: 20-100 tokens/sec (single request)
+- **E2E Latency**: 2-10 seconds for 512-token prompt + 128 token generation
+- **Memory Usage**: ~2-4GB GPU VRAM, ~4-8GB system RAM
 
-### Memory Efficiency
+### Scalability
 
-- **KV Cache**: < 2 bytes per token per layer (with int8 quantization potential)
-- **Model Weights**: Loaded in mixed precision (fp8/fp16)
-- **Peak Memory**: < 90% GPU VRAM for batch_size=64
+- **Concurrent Requests**: 1-10 simultaneous requests (depending on hardware)
+- **Sequence Length**: Up to 4096 tokens (model limit)
+- **Model Size**: Easily extensible to larger Qwen models
 
 ### Scalability
 
@@ -356,11 +327,11 @@ mili_qwen3/
 
 ## Next Steps
 
-1. **Read** `02_MOJO_KERNEL_GUIDE.md` for step-by-step kernel implementation
-2. **Review** `03_PYTHON_INTEGRATION.md` for Python layer setup
-3. **Study** `04_ATTENTION_MECHANISMS.md` for attention algorithm details
-4. **Follow** `05_KV_CACHE_MANAGEMENT.md` for cache system design
-5. **Deploy** using `06_DEPLOYMENT.md`
+1. **Read** `03_PYTHON_INTEGRATION.md` for server setup and usage
+2. **Review** `06_DEPLOYMENT.md` for production deployment
+3. **Check** `09_API_REFERENCE.md` for complete API documentation
+4. **Follow** `08_TROUBLESHOOTING_AND_DEBUGGING.md` for common issues
+5. **Explore** the examples in the `examples/` directory
 
 ---
 

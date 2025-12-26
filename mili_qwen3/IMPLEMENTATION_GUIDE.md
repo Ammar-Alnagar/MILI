@@ -2,237 +2,259 @@
 
 ## Overview
 
-MILI (Machine Learning Inference Lattice for Qwen3) is a production-grade inference framework for the Qwen3 language model with Mojo GPU kernel acceleration and advanced memory management.
+MILI (Machine Learning Inference Lattice for Qwen3) is a production-ready inference server for Qwen3 language models using HuggingFace transformers. It provides a simple, efficient API for text generation with GPU acceleration.
 
 ## Architecture
 
 ### 1. Core Components
 
-#### Mojo Kernels (`mojo_kernels/`)
-- **Activations** (`core/activations.🔥`): SwiGLU, GELU, ReLU, SiLU
-- **Attention** (`core/attention.🔥`): FlashAttention, Decode Attention, GQA
-- **Normalization** (`core/normalization.🔥`): RMSNorm with residual fusion
-- **RoPE** (`core/rope.🔥`): Rotary Position Embeddings with frequency precomputation
-- **KV Cache** (`memory/kv_cache.🔥`): Paged KV cache with RadixAttention
-- **Types** (`utils/types.🔥`): Core type definitions and GPU configuration
+#### Server Layer (`server.py`)
+- **FastAPI Application**: RESTful API for text generation
+- **Request Handling**: Input validation and response formatting
+- **Health Monitoring**: System status and model loading checks
 
-#### Python Layer (`python_layer/`)
-- **Model** (`model/qwen_model.py`): Main Qwen3 model implementation
-- **Memory** (`memory/kv_cache_manager.py`): Python KV cache management
-- **Inference** (`inference/inference_engine.py`): Inference engine with continuous batching
-- **Tokenizer** (`tokenizer/qwen_tokenizer.py`): BPE tokenizer and chat formatting
+#### Model Integration
+- **HuggingFace Transformers**: Direct integration with official Qwen3 models
+- **AutoTokenizer**: Automatic tokenization with proper encoding/decoding
+- **AutoModelForCausalLM**: Optimized inference with GPU acceleration
+
+#### Configuration (`config/`)
+- **Model Config**: Model parameters and settings (legacy)
+- **Inference Config**: Generation parameters and optimization settings
 
 ### 2. Key Features
 
-#### Paged KV Cache
-- Fixed-size pages (typically 16 tokens/page)
-- Reference counting for multi-request sharing
-- Independent block allocation/deallocation
-- Efficient gather/scatter operations
+#### HuggingFace Integration
+- Direct use of official Qwen3 models from HuggingFace Hub
+- Automatic model downloading and caching
+- Support for different model sizes and variants
 
-#### RadixAttention with Prefix Sharing
-- Radix tree structure for prompt prefixes
-- Multiple requests share common prefixes
-- Reduces redundant computation and memory
+#### GPU Acceleration
+- Automatic CUDA detection and device placement
+- Optimized inference with transformers backend
+- CPU fallback for systems without GPU
 
-#### Continuous Batching
-- Dynamic request scheduling
-- Token-based batching for efficiency
-- Support for variable-length sequences
+#### RESTful API
+- FastAPI-based server with OpenAPI documentation
+- Request validation with Pydantic models
+- Health check and monitoring endpoints
 
-#### Flash Attention
-- Efficient attention computation
-- Block-wise tiling to reduce memory I/O
-- Online softmax for numerical stability
+#### Flexible Generation
+- Configurable sampling parameters (temperature, top_p, top_k)
+- Adjustable maximum token limits
+- Proper token counting and response formatting
 
 ## Implementation Details
 
-### Mojo Kernel Implementation Pattern
+### Server Architecture
 
-Each kernel follows a consistent pattern:
-
-```mojo
-struct MyKernel:
-    var context: DeviceContext
-    var metadata: TensorMetadata
-    var config: MyConfig
-    
-    fn __init__(context, metadata, config) -> Self:
-        return Self(context=context, metadata=metadata, config=config)
-    
-    fn forward(inout self, input_ptr, output_ptr):
-        # Implementation here
-        self.kernel_launch(input_ptr, output_ptr)
-    
-    fn kernel_launch(inout self, input_ptr, output_ptr):
-        # CUDA-style grid/block execution
-        let total_elements = ...
-        let block_size = self.config.threads_per_block
-        let grid_size = (total_elements + block_size - 1) // block_size
-        
-        for block_idx in range(grid_size):
-            for thread_idx in range(block_size):
-                self.compute_thread(thread_idx, block_idx, input_ptr, output_ptr)
-```
-
-### KV Cache Management Flow
-
-```
-Request -> Allocate Pages -> Forward Pass -> Cache KV -> Next Request
-                    ↓                            ↓
-           RadixAttention                   Update Block
-           Prefix Sharing                   Token Count
-                    ↓                            ↓
-           Request Complete -> Free Pages -> Eviction Check
-```
-
-### Attention Computation
-
-#### Prefill Phase
-```
-Input: Q[batch, seq_len, heads, dim]
-       K[batch, seq_len, heads, dim]
-       V[batch, seq_len, heads, dim]
-
-1. Apply RoPE to Q and K
-2. Compute scores: Q @ K^T / sqrt(d_k)
-3. Apply causal mask
-4. Softmax with online algorithm
-5. Apply to values: scores @ V
-6. Merge heads
-7. Output projection
-```
-
-#### Decode Phase
-```
-Input: Q_new[1, heads, dim]
-       K_cache[cache_len, heads, dim]
-       V_cache[cache_len, heads, dim]
-
-1. Apply RoPE to Q_new
-2. Compute scores: Q_new @ K_cache^T / sqrt(d_k)
-3. Softmax
-4. Apply to cached values
-5. Output projection
-```
-
-## Python Layer Usage
-
-### Basic Initialization
+The server follows a simple, production-ready pattern:
 
 ```python
-from python_layer import (
-    Qwen3Model, ModelConfig, PagedKVCache, 
-    QwenTokenizer, InferenceEngine
-)
+# server.py structure
+from fastapi import FastAPI
+from transformers import AutoTokenizer, AutoModelForCausalLM
+import torch
 
-# Create configuration
-config = ModelConfig(
-    vocab_size=151936,
-    hidden_size=4096,
-    num_heads=32,
-    num_kv_heads=8,
-    head_dim=128,
-    num_layers=32
-)
+app = FastAPI(title="MILI Qwen3 Server")
 
-# Initialize components
-model = Qwen3Model(config)
-tokenizer = QwenTokenizer()
-cache = PagedKVCache(page_size=16, num_pages=1024)
-engine = InferenceEngine(model, cache, batch_size=32)
+# Global model and tokenizer
+model = None
+tokenizer = None
+
+@app.on_event("startup")
+async def load_model():
+    global model, tokenizer
+    model = AutoModelForCausalLM.from_pretrained("Qwen/Qwen3-0.6B")
+    tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen3-0.6B")
+
+@app.post("/generate")
+async def generate(request: GenerationRequest):
+    inputs = tokenizer(request.prompt, return_tensors="pt")
+    outputs = model.generate(**inputs, max_new_tokens=request.max_tokens)
+    response = tokenizer.decode(outputs[0], skip_special_tokens=True)
+    return {"generated_text": response}
 ```
 
-### Text Generation
+### Model Loading Process
+
+```
+User Request -> FastAPI Server -> Model Loading (startup)
+                                       ↓
+HuggingFace Hub -> Download Model -> Cache Locally -> GPU/CPU
+                                       ↓
+Ready for Inference -> Handle Requests -> Generate Text
+```
+
+### Text Generation Flow
+
+```
+Input Prompt -> Tokenization -> Model Forward Pass -> Sampling -> Detokenization
+      ↓              ↓                ↓              ↓            ↓
+   "Hello"    [151643, 1234]    logits tensor   top_p sampling   "Hello world"
+```
+
+## Usage
+
+### Starting the Server
+
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Run the server
+python server.py
+```
+
+The server will start on `http://localhost:9999` and automatically download the Qwen3-0.6B model.
+
+### API Usage
+
+#### Text Generation
 
 ```python
-import numpy as np
+import requests
 
-# Tokenize prompt
+response = requests.post("http://localhost:9999/generate", json={
+    "prompt": "What is machine learning?",
+    "max_tokens": 100,
+    "temperature": 0.7,
+    "top_p": 0.9
+})
+
+result = response.json()
+print(result["generated_text"])
+```
+
+#### Health Check
+
+```python
+response = requests.get("http://localhost:9999/health")
+status = response.json()
+print(f"Model loaded: {status['model_loaded']}")
+```
+
+### Python Integration
+
+For programmatic usage, you can integrate the model directly:
+
+```python
+from transformers import AutoTokenizer, AutoModelForCausalLM
+import torch
+
+# Load model and tokenizer
+tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen3-0.6B")
+model = AutoModelForCausalLM.from_pretrained("Qwen/Qwen3-0.6B")
+
+# Generate text
 prompt = "What is machine learning?"
-tokens = tokenizer.encode(prompt)
-input_ids = np.array(tokens, dtype=np.int32)
+inputs = tokenizer(prompt, return_tensors="pt")
 
-# Generate
-generated_ids = model.generate(
-    input_ids,
-    max_new_tokens=100,
-    temperature=0.7,
-    top_p=0.9
-)
-
-# Decode
-output_text = tokenizer.decode(generated_ids)
-print(output_text)
-```
-
-### Chat Interface
-
-```python
-from python_layer import MessageFormatter
-
-formatter = MessageFormatter(tokenizer)
-
-# Format conversation
-messages = [
-    {"role": "system", "content": "You are a helpful assistant."},
-    {"role": "user", "content": "How does attention work?"}
-]
-
-# Encode
-tokens = formatter.encode_chat(messages)
-generated = model.generate(tokens, max_new_tokens=200)
-
-# Parse response
-response_text = formatter.parse_response(
-    tokenizer.decode(generated)
-)
-print(response_text)
-```
-
-### Batch Processing
-
-```python
-from python_layer import InferenceRequest
-
-# Add multiple requests
-for i in range(10):
-    request = InferenceRequest(
-        request_id=i,
-        input_ids=[1, 2, 3],
-        max_new_tokens=50
+with torch.no_grad():
+    outputs = model.generate(
+        **inputs,
+        max_new_tokens=100,
+        temperature=0.7,
+        top_p=0.9
     )
-    engine.add_request(request)
 
-# Process in batches
-while engine.active_requests or engine.pending_requests:
-    completed = engine.step()
-    for req_id, output in completed:
-        print(f"Request {req_id}: {output.token_ids}")
+response = tokenizer.decode(outputs[0], skip_special_tokens=True)
+print(response)
 ```
+
+### Configuration
+
+The server uses these default generation parameters:
+
+```python
+DEFAULT_CONFIG = {
+    "max_tokens": 50,
+    "temperature": 1.0,
+    "top_p": 0.95,
+    "top_k": 50
+}
+```
+
+You can override these in each request.
 
 ## Performance Considerations
 
-### Memory Optimization
-1. **Paging**: Use page size matching GPU cache line (typically 128 bytes)
-2. **Prefix Sharing**: Enable for similar prompts (saves 20-40% memory)
-3. **Quantization**: Support for int8/fp8 (future enhancement)
+### Hardware Optimization
+1. **GPU Usage**: Automatic CUDA detection and utilization
+2. **Memory Management**: Efficient tensor operations with PyTorch
+3. **Batch Processing**: Single request processing (extendable to batching)
 
-### Computational Efficiency
-1. **Flash Attention**: Reduces memory I/O by 10x
-2. **Kernel Fusion**: Fuse operations where possible
-3. **Batch Size**: Tune based on memory constraints
+### Generation Parameters
+1. **Temperature**: Controls randomness (0.1-2.0)
+2. **Top-p**: Nucleus sampling for quality (0.1-0.99)
+3. **Top-k**: Limits token selection (1-100)
+4. **Max Tokens**: Response length control (1-4096)
 
-### Latency Targets
-- Prefill: 20-40 µs per token
-- Decode: 100-200 µs per token
-- Memory BW: 2 TB/s on H100
+### Expected Performance (Qwen3-0.6B)
+- **Generation Speed**: 20-50 tokens/second (GPU)
+- **Memory Usage**: 2-4GB GPU VRAM, 4-8GB system RAM
+- **Latency**: 2-10 seconds for 100-200 token responses
+- **Concurrent Users**: 1-5 simultaneous requests (depending on hardware)
 
 ## Testing
 
+### Basic Functionality Test
+```bash
+# Test the server health
+curl http://localhost:9999/health
+
+# Test text generation
+curl -X POST http://localhost:9999/generate \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "Hello, how are you?", "max_tokens": 20}'
+```
+
+### Integration Tests
+```bash
+python -m pytest tests/integration/test_inference.py -v
+```
+
 ### Unit Tests
 ```bash
-python -m pytest tests/unit/test_tokenizer.py
+python -m pytest tests/unit/test_tokenizer.py -v
+```
+
+## Deployment
+
+### Local Development
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Run server
+python server.py
+```
+
+### Production Server
+```bash
+# Use a production ASGI server
+pip install gunicorn
+gunicorn server:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000
+```
+
+### Docker Deployment
+```dockerfile
+FROM python:3.10-slim
+
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+
+COPY . .
+EXPOSE 9999
+
+CMD ["python", "server.py"]
+```
+
+```bash
+# Build and run
+docker build -t mili-qwen3 .
+docker run -p 9999:9999 mili-qwen3
 ```
 
 ### Integration Tests
@@ -272,32 +294,75 @@ RUN pip install -r requirements.txt
 
 ### Common Issues
 
-#### Out of Memory
-- Reduce batch size
-- Enable prefix sharing
-- Use smaller page size
+#### Model Loading Errors
+```bash
+# Check internet connection
+ping huggingface.co
 
-#### Slow Generation
-- Check GPU utilization
-- Verify batch size configuration
-- Profile with nvprof
+# Clear cache if corrupted
+rm -rf ~/.cache/huggingface/hub/models--Qwen--Qwen3-0.6B
 
-#### Cache Corruption
-- Enable cache validation in debug mode
-- Check page allocation/deallocation
-- Verify KV write correctness
+# Try different model
+# Change "Qwen/Qwen3-0.6B" to "Qwen/Qwen3-1.7B" in server.py
+```
+
+#### CUDA/GPU Issues
+```bash
+# Check CUDA installation
+nvidia-smi
+
+# Force CPU usage (edit server.py)
+device = "cpu"  # Instead of torch.cuda.is_available()
+
+# Check PyTorch CUDA support
+python -c "import torch; print(torch.cuda.is_available())"
+```
+
+#### Memory Issues
+```bash
+# Monitor memory usage
+nvidia-smi --query-gpu=memory.used,memory.total --format=csv
+
+# Reduce generation length
+# Set max_tokens to lower value in requests
+```
+
+#### Port Conflicts
+```bash
+# Find process using port
+lsof -i :9999
+
+# Kill conflicting process
+kill -9 <PID>
+
+# Or change port in server.py
+uvicorn.run(app, host="0.0.0.0", port=8000)
+```
+
+### Performance Tuning
+
+#### Optimize for Speed
+- Use GPU if available
+- Lower max_tokens for faster responses
+- Adjust temperature (lower = faster, less creative)
+
+#### Optimize for Quality
+- Increase temperature for more creative responses
+- Use top_p < 0.9 for focused generation
+- Experiment with different prompts
 
 ## Future Enhancements
 
-1. **Quantization**: int8/fp8 KV cache
-2. **Multi-GPU**: Tensor parallelism
-3. **Speculative Decoding**: Draft models
-4. **Tree Attention**: For tree-based generation
-5. **Custom Kernels**: User-defined operations
+1. **Batch Processing**: Support multiple concurrent requests
+2. **Model Variants**: Support for different Qwen model sizes
+3. **Streaming Responses**: Real-time token streaming
+4. **Quantization**: 4-bit/8-bit model quantization
+5. **Multi-GPU**: Distributed inference across GPUs
+6. **Caching**: Request/result caching for repeated queries
 
 ## References
 
-- Dao et al., "FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness", 2022
-- Su et al., "RoFormer: Enhanced Transformer with Rotary Position Embedding", 2021
-- Shazeer et al., "Fast Transformer Decoding: One Write-Head is All You Need", 2019
-- Kwon et al., "Efficient Memory Management for Large Language Model Serving with PagedAttention", 2023
+- [Qwen3 Official Documentation](https://huggingface.co/Qwen)
+- [Transformers Library](https://huggingface.co/docs/transformers)
+- [FastAPI Documentation](https://fastapi.tiangolo.com/)
+- [PyTorch Documentation](https://pytorch.org/docs/)
