@@ -53,13 +53,13 @@ curl -X POST http://localhost:8000/generate \
 
 This project is organized as a progressive learning guide:
 
-### 1. **[Project Overview](docs/01_PROJECT_OVERVIEW.md)** - START HERE
+### 1. **[Project Overview](mili_qwen3/docs/01_PROJECT_OVERVIEW.md)** - START HERE
     - High-level architecture
     - System design principles
     - Project organization
     - Prerequisites and setup
 
-### 2. **[Mojo Kernel Guide](docs/02_MOJO_KERNEL_GUIDE.md)** - GPU Kernels (Legacy)
+### 2. **[Mojo Kernel Guide](mili_qwen3/docs/02_MOJO_KERNEL_GUIDE.md)** - GPU Kernels (Legacy)
     - Foundation & setup
     - RoPE implementation
     - RMSNorm kernels
@@ -68,7 +68,7 @@ This project is organized as a progressive learning guide:
     - Decode-phase attention
     - Memory management
 
-### 3. **[Python Integration Guide](docs/03_PYTHON_INTEGRATION.md)** - Python Layer
+### 3. **[Python Integration Guide](mili_qwen3/docs/03_PYTHON_INTEGRATION.md)** - Python Layer
     - Model architecture & config
     - Weight loading
     - Tokenization (tiktoken)
@@ -76,7 +76,7 @@ This project is organized as a progressive learning guide:
     - Sampling strategies
     - Model class integration
 
-### 4. **[Attention Mechanisms](docs/04_ATTENTION_MECHANISMS.md)** - Deep Dive
+### 4. **[Attention Mechanisms](mili_qwen3/docs/04_ATTENTION_MECHANISMS.md)** - Deep Dive
     - Scaled dot-product attention
     - Grouped Query Attention (GQA)
     - FlashAttention optimization
@@ -84,7 +84,7 @@ This project is organized as a progressive learning guide:
     - Multi-request attention
     - Performance benchmarks
 
-### 5. **[KV Cache Management](docs/05_KV_CACHE_MANAGEMENT.md)** - Memory Efficiency
+### 5. **[KV Cache Management](mili_qwen3/docs/05_KV_CACHE_MANAGEMENT.md)** - Memory Efficiency
     - Paged KV cache
     - RadixAttention for prefix sharing
     - Reference counting
@@ -92,7 +92,7 @@ This project is organized as a progressive learning guide:
     - Eviction policies
     - Integration with inference loop
 
-### 6. **[Deployment Guide](docs/06_DEPLOYMENT.md)** - Production Ready
+### 6. **[Deployment Guide](mili_qwen3/docs/06_DEPLOYMENT.md)** - Production Ready
     - FastAPI server setup
     - Docker containerization
     - Kubernetes deployment
@@ -100,25 +100,25 @@ This project is organized as a progressive learning guide:
     - Monitoring & metrics
     - Load testing
 
-### 7. **[Advanced Optimization](docs/07_ADVANCED_OPTIMIZATION.md)** - Performance Tuning
+### 7. **[Advanced Optimization](mili_qwen3/docs/07_ADVANCED_OPTIMIZATION.md)** - Performance Tuning
     - Kernel optimization techniques
     - Memory bandwidth optimization
     - Parallel processing strategies
 
-### 8. **[Troubleshooting and Debugging](docs/08_TROUBLESHOOTING_AND_DEBUGGING.md)** - Common Issues
+### 8. **[Troubleshooting and Debugging](mili_qwen3/docs/08_TROUBLESHOOTING_AND_DEBUGGING.md)** - Common Issues
     - Environment setup problems
     - Kernel compilation issues
     - Python integration bugs
     - Server deployment issues
     - Performance bottlenecks
 
-### 9. **[API Reference](docs/09_API_REFERENCE.md)** - Complete API Docs
+### 9. **[API Reference](mili_qwen3/docs/09_API_REFERENCE.md)** - Complete API Docs
     - Server endpoints
     - Request/response formats
     - Configuration options
     - Error handling
 
-### 10. **[Best Practices and Patterns](docs/10_BEST_PRACTICES_AND_PATTERNS.md)** - Production Patterns
+### 10. **[Best Practices and Patterns](mili_qwen3/docs/10_BEST_PRACTICES_AND_PATTERNS.md)** - Production Patterns
     - Code organization
     - Testing strategies
     - Deployment best practices
