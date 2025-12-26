@@ -1,2 +1,172 @@
 Thread   Start(us)  B/E     Dur(us)  Name/Detail
 ------  ----------  ---  ----------  ------------------------------
+277898      907909  BEG           7  AnnotateKernels
+277898      907917  END           7  AnnotateKernels
+277898      907918  BEG           0  VerifyKernels
+277898      907919  END           0  VerifyKernels
+277898      907919  BEG           7  LowerSemanticCF
+277898      907927  END           7  LowerSemanticCF
+277898      907927  BEG          10  CheckLifetimes
+277898      907929  BEG           2  (A) SymbolTableAnalysis
+277898      907931  END           2  (A) SymbolTableAnalysis
+277898      907937  END          10  CheckLifetimes
+277898     7440591  BEG           4  AnnotateKernels
+277898     7440595  END           4  AnnotateKernels
+277898     7440595  BEG           0  VerifyKernels
+277898     7440596  END           0  VerifyKernels
+277898     7440596  BEG           7  LowerSemanticCF
+277898     7440603  END           7  LowerSemanticCF
+277898     7440604  BEG          10  CheckLifetimes
+277898     7440605  BEG           1  (A) SymbolTableAnalysis
+277898     7440607  END           1  (A) SymbolTableAnalysis
+277898     7440614  END          10  CheckLifetimes
+277898     8653004  BEG           4  AnnotateKernels
+277898     8653009  END           4  AnnotateKernels
+277898     8653009  BEG           0  VerifyKernels
+277898     8653010  END           0  VerifyKernels
+277898     8653010  BEG           7  LowerSemanticCF
+277898     8653018  END           7  LowerSemanticCF
+277898     8653018  BEG          10  CheckLifetimes
+277898     8653020  BEG           1  (A) SymbolTableAnalysis
+277898     8653022  END           1  (A) SymbolTableAnalysis
+277898     8653028  END          10  CheckLifetimes
+277898    14141652  BEG           4  AnnotateKernels
+277898    14141656  END           4  AnnotateKernels
+277898    14141656  BEG           0  VerifyKernels
+277898    14141657  END           0  VerifyKernels
+277898    14141658  BEG           6  LowerSemanticCF
+277898    14141664  END           6  LowerSemanticCF
+277898    14141665  BEG          10  CheckLifetimes
+277898    14141667  BEG           2  (A) SymbolTableAnalysis
+277898    14141669  END           2  (A) SymbolTableAnalysis
+277898    14141675  END          10  CheckLifetimes
+277898    15464636  BEG           4  AnnotateKernels
+277898    15464641  END           4  AnnotateKernels
+277898    15464641  BEG           1  VerifyKernels
+277898    15464642  END           1  VerifyKernels
+277898    15464643  BEG           8  LowerSemanticCF
+277898    15464652  END           8  LowerSemanticCF
+277898    15464652  BEG          11  CheckLifetimes
+277898    15464654  BEG           2  (A) SymbolTableAnalysis
+277898    15464656  END           2  (A) SymbolTableAnalysis
+277898    15464663  END          11  CheckLifetimes
+277898    20617476  BEG           4  AnnotateKernels
+277898    20617480  END           4  AnnotateKernels
+277898    20617481  BEG           0  VerifyKernels
+277898    20617482  END           0  VerifyKernels
+277898    20617482  BEG           6  LowerSemanticCF
+277898    20617489  END           6  LowerSemanticCF
+277898    20617489  BEG          11  CheckLifetimes
+277898    20617491  BEG           2  (A) SymbolTableAnalysis
+277898    20617494  END           2  (A) SymbolTableAnalysis
+277898    20617500  END          11  CheckLifetimes
+277898    21998989  BEG           4  AnnotateKernels
+277898    21998993  END           4  AnnotateKernels
+277898    21998994  BEG           0  VerifyKernels
+277898    21998995  END           0  VerifyKernels
+277898    21998995  BEG           5  LowerSemanticCF
+277898    21999001  END           5  LowerSemanticCF
+277898    21999001  BEG          10  CheckLifetimes
+277898    21999003  BEG           2  (A) SymbolTableAnalysis
+277898    21999005  END           2  (A) SymbolTableAnalysis
+277898    21999012  END          10  CheckLifetimes
+277898    27635157  BEG           4  AnnotateKernels
+277898    27635161  END           4  AnnotateKernels
+277898    27635162  BEG           0  VerifyKernels
+277898    27635163  END           0  VerifyKernels
+277898    27635163  BEG           7  LowerSemanticCF
+277898    27635170  END           7  LowerSemanticCF
+277898    27635171  BEG          10  CheckLifetimes
+277898    27635173  BEG           2  (A) SymbolTableAnalysis
+277898    27635175  END           2  (A) SymbolTableAnalysis
+277898    27635182  END          10  CheckLifetimes
+277898    32497340  BEG           3  AnnotateKernels
+277898    32497344  END           3  AnnotateKernels
+277898    32497344  BEG           0  VerifyKernels
+277898    32497345  END           0  VerifyKernels
+277898    32497345  BEG           9  LowerSemanticCF
+277898    32497354  END           9  LowerSemanticCF
+277898    32497355  BEG          10  CheckLifetimes
+277898    32497356  BEG           1  (A) SymbolTableAnalysis
+277898    32497358  END           1  (A) SymbolTableAnalysis
+277898    32497365  END          10  CheckLifetimes
+277898    36778136  BEG           4  AnnotateKernels
+277898    36778140  END           4  AnnotateKernels
+277898    36778141  BEG           0  VerifyKernels
+277898    36778142  END           0  VerifyKernels
+277898    36778142  BEG           8  LowerSemanticCF
+277898    36778150  END           8  LowerSemanticCF
+277898    36778151  BEG          10  CheckLifetimes
+277898    36778152  BEG           2  (A) SymbolTableAnalysis
+277898    36778155  END           2  (A) SymbolTableAnalysis
+277898    36778161  END          10  CheckLifetimes
+277898    38576110  BEG        1669  AnnotateKernels
+277898    38577779  END        1669  AnnotateKernels
+277898    38577780  BEG         260  VerifyKernels
+277898    38578041  END         260  VerifyKernels
+277898    38578042  BEG        2825  LowerSemanticCF
+277898    38580867  END        2825  LowerSemanticCF
+277898    38580868  BEG       30859  CheckLifetimes
+277898    38581933  BEG           7  (A) SymbolTableAnalysis
+277898    38581940  END           7  (A) SymbolTableAnalysis
+277898    38611728  END       30859  CheckLifetimes
+277898    42469267  BEG        1542  AnnotateKernels
+277898    42470810  END        1542  AnnotateKernels
+277898    42470811  BEG         284  VerifyKernels
+277898    42471096  END         284  VerifyKernels
+277898    42471097  BEG        2658  LowerSemanticCF
+277898    42473755  END        2658  LowerSemanticCF
+277898    42473756  BEG       31208  CheckLifetimes
+277898    42474837  BEG           7  (A) SymbolTableAnalysis
+277898    42474844  END           7  (A) SymbolTableAnalysis
+277898    42504965  END       31208  CheckLifetimes
+277898    76728786  BEG           4  AnnotateKernels
+277898    76728791  END           4  AnnotateKernels
+277898    76728791  BEG           1  VerifyKernels
+277898    76728792  END           1  VerifyKernels
+277898    76728793  BEG           7  LowerSemanticCF
+277898    76728800  END           7  LowerSemanticCF
+277898    76728801  BEG          11  CheckLifetimes
+277898    76728803  BEG           2  (A) SymbolTableAnalysis
+277898    76728805  END           2  (A) SymbolTableAnalysis
+277898    76728813  END          11  CheckLifetimes
+277898    77345343  BEG           4  AnnotateKernels
+277898    77345348  END           4  AnnotateKernels
+277898    77345348  BEG           0  VerifyKernels
+277898    77345349  END           0  VerifyKernels
+277898    77345349  BEG          11  LowerSemanticCF
+277898    77345361  END          11  LowerSemanticCF
+277898    77345362  BEG          15  CheckLifetimes
+277898    77345364  BEG           3  (A) SymbolTableAnalysis
+277898    77345367  END           3  (A) SymbolTableAnalysis
+277898    77345377  END          15  CheckLifetimes
+277898    77972920  BEG           4  AnnotateKernels
+277898    77972925  END           4  AnnotateKernels
+277898    77972925  BEG           1  VerifyKernels
+277898    77972926  END           1  VerifyKernels
+277898    77972927  BEG           8  LowerSemanticCF
+277898    77972935  END           8  LowerSemanticCF
+277898    77972936  BEG          10  CheckLifetimes
+277898    77972937  BEG           1  (A) SymbolTableAnalysis
+277898    77972939  END           1  (A) SymbolTableAnalysis
+277898    77972946  END          10  CheckLifetimes
+277898    78713900  BEG           4  AnnotateKernels
+277898    78713904  END           4  AnnotateKernels
+277898    78713904  BEG           1  VerifyKernels
+277898    78713906  END           1  VerifyKernels
+277898    78713906  BEG           7  LowerSemanticCF
+277898    78713914  END           7  LowerSemanticCF
+277898    78713914  BEG          10  CheckLifetimes
+277898    78713915  BEG           2  (A) SymbolTableAnalysis
+277898    78713918  END           2  (A) SymbolTableAnalysis
+277898    78713924  END          10  CheckLifetimes
+277898    79301989  BEG           4  AnnotateKernels
+277898    79301993  END           4  AnnotateKernels
+277898    79301994  BEG           0  VerifyKernels
+277898    79301995  END           0  VerifyKernels
+277898    79301995  BEG           7  LowerSemanticCF
+277898    79302003  END           7  LowerSemanticCF
+277898    79302003  BEG          10  CheckLifetimes
+277898    79302005  BEG           2  (A) SymbolTableAnalysis
+277898    79302007  END           2  (A) SymbolTableAnalysis
+277898    79302014  END          10  CheckLifetimes

@@ -1,0 +1,548 @@
+# ===----------------------------------------------------------------------=== #
+# Copyright (c) 2025, Modular Inc. All rights reserved.
+#
+# Licensed under the Apache License v2.0 with LLVM Exceptions:
+# https://llvm.org/LICENSE.txt
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ===----------------------------------------------------------------------=== #
+# Issue #23536
+
+from algorithm.functional import stencil
+from testing import TestSuite
+
+from utils import IndexList
+from utils.numerics import min_or_neg_inf
+
+comptime _map_fn_type = fn[rank: Int] (IndexList[rank]) capturing -> Tuple[
+    IndexList[rank],
+    IndexList[rank],
+]
+comptime load_fn_type = fn[dtype: DType, rank: Int, simd_width: Int] (
+    IndexList[rank]
+) capturing -> SIMD[dtype, simd_width]
+
+
+fn _linear_index[
+    rank: Int
+](coords: IndexList[rank, **_], shape: IndexList[rank]) -> Int:
+    """Convert multi-dimensional coordinates to linear index (row-major)."""
+    var linear_idx = 0
+    var stride = 1
+
+    @parameter
+    for i in reversed(range(rank)):
+        linear_idx += coords[i] * stride
+        stride *= shape[i]
+    return linear_idx
+
+
+fn fill_span[
+    dtype: DType, origin: MutOrigin
+](buf: Span[Scalar[dtype], origin], size: Int):
+    for j in range(size):
+        buf.unsafe_ptr()[j] = Scalar[dtype](j) + 1
+
+
+# TODO: Refactor tests
+# CHECK-LABEL: test_stencil_avg_pool
+def test_stencil_avg_pool():
+    print("== test_stencil_avg_pool")
+    comptime rank = 4
+    comptime stencil_rank = 2
+    comptime dtype = DType.float32
+    comptime simd_with = 1
+
+    comptime input_width = 5
+    comptime input_height = 5
+
+    comptime stride = 1
+    comptime pool_window_h = 3
+    comptime pool_window_w = 3
+    comptime dilation = 1
+
+    comptime input_shape_dims = IndexList[4](1, input_height, input_width, 1)
+
+    comptime output_height = input_height - pool_window_h + 1
+    comptime output_width = input_width - pool_window_w + 1
+
+    comptime output_shape_dims = IndexList[4](1, output_height, output_width, 1)
+
+    var input_stack = InlineArray[
+        Scalar[dtype], Int(input_shape_dims.flattened_length())
+    ](uninitialized=True)
+    var input = Span[Scalar[dtype]](input_stack)
+    var input_shape = IndexList[rank](1, input_height, input_width, 1)
+    var output_stack = InlineArray[
+        Scalar[dtype], Int(output_shape_dims.flattened_length())
+    ](uninitialized=True)
+    var output = Span[Scalar[dtype]](output_stack)
+    var output_shape = IndexList[rank](1, output_height, output_width, 1)
+
+    fill_span(input, Int(input_shape_dims.flattened_length()))
+    for i in range(Int(output_shape_dims.flattened_length())):
+        output.unsafe_ptr()[i] = 0
+
+    @parameter
+    fn map_fn[
+        rank: Int
+    ](point: IndexList[stencil_rank, **_]) -> Tuple[
+        IndexList[stencil_rank],
+        IndexList[stencil_rank],
+    ]:
+        var lower_bound = IndexList[stencil_rank](point[0], point[1])
+        var upper_bound = IndexList[stencil_rank](
+            point[0] + pool_window_h, point[1] + pool_window_w
+        )
+        return lower_bound, upper_bound
+
+    @always_inline
+    @__copy_capture(input, input_shape)
+    @parameter
+    fn load_fn[
+        simd_width: Int, dtype: DType
+    ](point: IndexList[rank, **_]) -> SIMD[dtype, simd_width]:
+        var linear_idx = _linear_index(point, input_shape)
+        return (
+            input.unsafe_ptr()
+            .load[width=simd_width](linear_idx)
+            ._refine[dtype]()
+        )
+
+    @always_inline
+    @parameter
+    fn avg_pool_compute_init[simd_width: Int]() -> SIMD[dtype, simd_width]:
+        return SIMD[dtype, simd_width](0)
+
+    @always_inline
+    @parameter
+    fn avg_pool_compute[
+        simd_width: Int
+    ](
+        point: IndexList[rank, **_],
+        val: SIMD[dtype, simd_width],
+        result: SIMD[dtype, simd_width],
+    ) -> SIMD[dtype, simd_width]:
+        return val + result
+
+    @always_inline
+    @parameter
+    fn dilation_fn(dim: Int) -> Int:
+        return 1
+
+    @always_inline
+    @__copy_capture(output, output_shape)
+    @parameter
+    fn avg_pool_compute_finalize[
+        simd_width: Int
+    ](point: IndexList[rank, **_], val: SIMD[dtype, simd_width]):
+        var res = val / (pool_window_h * pool_window_w)
+        var linear_idx = _linear_index(point, output_shape)
+        output.unsafe_ptr().store(linear_idx, res)
+
+    comptime stencil_axis = IndexList[stencil_rank](1, 2)
+    stencil[
+        rank,
+        stencil_rank,
+        stencil_axis,
+        simd_with,
+        dtype,
+        map_fn[stencil_rank],
+        dilation_fn,
+        load_fn,
+        avg_pool_compute_init,
+        avg_pool_compute,
+        avg_pool_compute_finalize,
+    ](output_shape, input_shape)
+
+    # CHECK: 7.0    8.0     9.0
+    # CHECK: 12.0    13.0    14.0
+    # CHECK: 17.0    18.0    19.0
+    for i in range(0, output_height):
+        for j in range(0, output_width):
+            var idx = _linear_index(IndexList[rank](0, i, j, 0), output_shape)
+            print(output.unsafe_ptr()[idx], "\t", end="")
+        print("")
+
+
+# CHECK-LABEL: test_stencil_avg_pool_padded
+def test_stencil_avg_pool_padded():
+    print("== test_stencil_avg_pool_padded")
+    comptime rank = 4
+    comptime stencil_rank = 2
+    comptime dtype = DType.float32
+    comptime simd_with = 1
+
+    comptime input_width = 5
+    comptime input_height = 5
+
+    comptime stride = 1
+    comptime pool_window_h = 5
+    comptime pool_window_w = 5
+    comptime dilation = 1
+    comptime pad_h = 2
+    comptime pad_w = 2
+
+    comptime input_shape_dims = IndexList[4](1, input_height, input_width, 1)
+
+    comptime output_height = input_height - pool_window_h + pad_h * 2 + 1
+    comptime output_width = input_width - pool_window_w + pad_w * 2 + 1
+
+    comptime output_shape_dims = IndexList[4](1, output_height, output_width, 1)
+
+    var input_stack = InlineArray[
+        Scalar[dtype], Int(input_shape_dims.flattened_length())
+    ](uninitialized=True)
+    var input = Span[Scalar[dtype]](input_stack)
+    var input_shape = IndexList[rank](1, input_height, input_width, 1)
+    var output_stack = InlineArray[
+        Scalar[dtype], Int(output_shape_dims.flattened_length())
+    ](uninitialized=True)
+    var output = Span[Scalar[dtype]](output_stack)
+    var output_shape = IndexList[rank](1, output_height, output_width, 1)
+
+    fill_span(input, Int(input_shape_dims.flattened_length()))
+    for i in range(Int(output_shape_dims.flattened_length())):
+        output.unsafe_ptr()[i] = 0
+
+    @parameter
+    fn map_fn[
+        rank: Int
+    ](point: IndexList[stencil_rank, **_]) -> Tuple[
+        IndexList[stencil_rank],
+        IndexList[stencil_rank],
+    ]:
+        var lower_bound = IndexList[stencil_rank](
+            point[0] - pad_h, point[1] - pad_w
+        )
+        var upper_bound = IndexList[stencil_rank](
+            point[0] + pool_window_h - pad_h, point[1] + pool_window_w - pad_w
+        )
+        return lower_bound, upper_bound
+
+    @always_inline
+    @__copy_capture(input, input_shape)
+    @parameter
+    fn load_fn[
+        simd_width: Int, dtype: DType
+    ](point: IndexList[rank, **_]) -> SIMD[dtype, simd_width]:
+        var linear_idx = _linear_index(point, input_shape)
+        return (
+            input.unsafe_ptr()
+            .load[width=simd_width](linear_idx)
+            ._refine[dtype]()
+        )
+
+    @always_inline
+    @parameter
+    fn avg_pool_compute_init[simd_width: Int]() -> SIMD[dtype, simd_width]:
+        return SIMD[dtype, simd_width](0)
+
+    @always_inline
+    @parameter
+    fn avg_pool_compute[
+        simd_width: Int
+    ](
+        point: IndexList[rank, **_],
+        val: SIMD[dtype, simd_width],
+        result: SIMD[dtype, simd_width],
+    ) -> SIMD[dtype, simd_width]:
+        return val + result
+
+    @always_inline
+    @__copy_capture(output, output_shape)
+    @parameter
+    fn avg_pool_compute_finalize[
+        simd_width: Int
+    ](point: IndexList[rank, **_], val: SIMD[dtype, simd_width]):
+        var res = val / (pool_window_h * pool_window_w)
+        var linear_idx = _linear_index(point, output_shape)
+        output.unsafe_ptr().store(linear_idx, res)
+
+    @always_inline
+    @parameter
+    fn dilation_fn(dim: Int) -> Int:
+        return 1
+
+    comptime stencil_axis = IndexList[stencil_rank](1, 2)
+    stencil[
+        rank,
+        stencil_rank,
+        stencil_axis,
+        simd_with,
+        dtype,
+        map_fn[stencil_rank],
+        dilation_fn,
+        load_fn,
+        avg_pool_compute_init,
+        avg_pool_compute,
+        avg_pool_compute_finalize,
+    ](output_shape, input_shape)
+
+    # CHECK: 2.52 3.6 4.8 4.08 3.24
+    # CHECK: 4.56 6.4 8.4 7.04 5.52
+    # CHECK: 7.2 10.0 13.0 10.8 8.4
+    # CHECK: 6.96 9.6 12.4 10.24 7.92
+    # CHECK: 6.12 8.4 10.8 8.88 6.84
+    for i in range(0, output_height):
+        for j in range(0, output_width):
+            var idx = _linear_index(IndexList[rank](0, i, j, 0), output_shape)
+            print(output.unsafe_ptr()[idx], "\t", end="")
+        print("")
+
+
+# CHECK-LABEL: test_stencil_avg_pool_stride_2
+def test_stencil_avg_pool_stride_2():
+    print("== test_stencil_avg_pool_stride_2")
+    comptime rank = 4
+    comptime stencil_rank = 2
+    comptime dtype = DType.float32
+    comptime simd_with = 1
+
+    comptime input_width = 7
+    comptime input_height = 7
+
+    comptime stride = 2
+    comptime pool_window_h = 3
+    comptime pool_window_w = 3
+    comptime dilation = 1
+
+    comptime input_shape_dims = IndexList[4](1, input_height, input_width, 1)
+
+    comptime output_height = (input_height - pool_window_h) // stride + 1
+    comptime output_width = (input_width - pool_window_w) // stride + 1
+
+    comptime output_shape_dims = IndexList[4](1, output_height, output_width, 1)
+
+    var input_stack = InlineArray[
+        Scalar[dtype], Int(input_shape_dims.flattened_length())
+    ](uninitialized=True)
+    var input = Span[Scalar[dtype]](input_stack)
+    var input_shape = IndexList[rank](1, input_height, input_width, 1)
+    var output_stack = InlineArray[
+        Scalar[dtype], Int(output_shape_dims.flattened_length())
+    ](uninitialized=True)
+    var output = Span[Scalar[dtype]](output_stack)
+    var output_shape = IndexList[rank](1, output_height, output_width, 1)
+
+    fill_span(input, Int(input_shape_dims.flattened_length()))
+    for i in range(Int(output_shape_dims.flattened_length())):
+        output.unsafe_ptr()[i] = 0
+
+    @parameter
+    fn map_fn[
+        rank: Int
+    ](point: IndexList[stencil_rank, **_]) -> Tuple[
+        IndexList[stencil_rank],
+        IndexList[stencil_rank],
+    ]:
+        var lower_bound = IndexList[stencil_rank](
+            point[0] * stride, point[1] * stride
+        )
+        var upper_bound = IndexList[stencil_rank](
+            (point[0] * stride + pool_window_h),
+            (point[1] * stride + pool_window_w),
+        )
+        return lower_bound, upper_bound
+
+    @always_inline
+    @__copy_capture(input, input_shape)
+    @parameter
+    fn load_fn[
+        simd_width: Int, dtype: DType
+    ](point: IndexList[rank, **_]) -> SIMD[dtype, simd_width]:
+        var linear_idx = _linear_index(point, input_shape)
+        return (
+            input.unsafe_ptr()
+            .load[width=simd_width](linear_idx)
+            ._refine[dtype]()
+        )
+
+    @always_inline
+    @parameter
+    fn avg_pool_compute_init[simd_width: Int]() -> SIMD[dtype, simd_width]:
+        return SIMD[dtype, simd_width](0)
+
+    @always_inline
+    @parameter
+    fn avg_pool_compute[
+        simd_width: Int
+    ](
+        point: IndexList[rank, **_],
+        val: SIMD[dtype, simd_width],
+        result: SIMD[dtype, simd_width],
+    ) -> SIMD[dtype, simd_width]:
+        return val + result
+
+    @always_inline
+    @__copy_capture(output, output_shape)
+    @parameter
+    fn avg_pool_compute_finalize[
+        simd_width: Int
+    ](point: IndexList[rank, **_], val: SIMD[dtype, simd_width]):
+        var res = val / (pool_window_h * pool_window_w)
+        var linear_idx = _linear_index(point, output_shape)
+        output.unsafe_ptr().store(linear_idx, res)
+
+    @always_inline
+    @parameter
+    fn dilation_fn(dim: Int) -> Int:
+        return 1
+
+    comptime stencil_axis = IndexList[stencil_rank](1, 2)
+    stencil[
+        rank,
+        stencil_rank,
+        stencil_axis,
+        simd_with,
+        dtype,
+        map_fn[stencil_rank],
+        dilation_fn,
+        load_fn,
+        avg_pool_compute_init,
+        avg_pool_compute,
+        avg_pool_compute_finalize,
+    ](output_shape, input_shape)
+
+    # CHECK: 9.0     11.0    13.0
+    # CHECK: 23.0    25.0    27.0
+    # CHECK: 37.0    39.0    41.0
+    for i in range(0, output_height):
+        for j in range(0, output_width):
+            var idx = _linear_index(IndexList[rank](0, i, j, 0), output_shape)
+            print(output.unsafe_ptr()[idx], "\t", end="")
+        print("")
+
+
+# CHECK-LABEL: test_stencil_max_pool_dilation_2
+def test_stencil_max_pool_dilation_2():
+    print("== test_stencil_max_pool_dilation_2")
+    comptime rank = 4
+    comptime stencil_rank = 2
+    comptime dtype = DType.float32
+    comptime simd_with = 1
+
+    comptime input_width = 7
+    comptime input_height = 7
+
+    comptime stride = 1
+    comptime pool_window_h = 3
+    comptime pool_window_w = 3
+    comptime dilation = 2
+
+    comptime input_shape_dims = IndexList[4](1, input_height, input_width, 1)
+
+    comptime output_height = (
+        input_height - pool_window_h - (pool_window_h - 1) * (dilation - 1)
+    ) // stride + 1
+    comptime output_width = (
+        input_width - pool_window_w - (pool_window_w - 1) * (dilation - 1)
+    ) // stride + 1
+
+    comptime output_shape_dims = IndexList[4](1, output_height, output_width, 1)
+
+    var input_stack = InlineArray[
+        Scalar[dtype], Int(input_shape_dims.flattened_length())
+    ](uninitialized=True)
+    var input = Span[Scalar[dtype]](input_stack)
+    var input_shape = IndexList[rank](1, input_height, input_width, 1)
+    var output_stack = InlineArray[
+        Scalar[dtype], Int(output_shape_dims.flattened_length())
+    ](uninitialized=True)
+    var output = Span[Scalar[dtype]](output_stack)
+    var output_shape = IndexList[rank](1, output_height, output_width, 1)
+
+    fill_span(input, Int(input_shape_dims.flattened_length()))
+    for i in range(Int(output_shape_dims.flattened_length())):
+        output.unsafe_ptr()[i] = 0
+
+    @parameter
+    fn map_fn[
+        rank: Int
+    ](point: IndexList[stencil_rank, **_]) -> Tuple[
+        IndexList[stencil_rank],
+        IndexList[stencil_rank],
+    ]:
+        var lower_bound = IndexList[stencil_rank](
+            point[0] * stride, point[1] * stride
+        )
+        var upper_bound = IndexList[stencil_rank](
+            (point[0] * stride + pool_window_h * dilation),
+            (point[1] * stride + pool_window_w * dilation),
+        )
+        return lower_bound, upper_bound
+
+    @always_inline
+    @__copy_capture(input, input_shape)
+    @parameter
+    fn load_fn[
+        simd_width: Int, dtype: DType
+    ](point: IndexList[rank, **_]) -> SIMD[dtype, simd_width]:
+        var linear_idx = _linear_index(point, input_shape)
+        return (
+            input.unsafe_ptr()
+            .load[width=simd_width](linear_idx)
+            ._refine[dtype]()
+        )
+
+    @always_inline
+    @parameter
+    fn max_pool_compute_init[simd_width: Int]() -> SIMD[dtype, simd_width]:
+        return min_or_neg_inf[dtype]()
+
+    @always_inline
+    @parameter
+    fn max_pool_compute[
+        simd_width: Int
+    ](
+        point: IndexList[rank, **_],
+        val: SIMD[dtype, simd_width],
+        result: SIMD[dtype, simd_width],
+    ) -> SIMD[dtype, simd_width]:
+        return max(val, result)
+
+    @always_inline
+    @__copy_capture(output, output_shape)
+    @parameter
+    fn max_pool_compute_finalize[
+        simd_width: Int
+    ](point: IndexList[rank, **_], val: SIMD[dtype, simd_width]):
+        var linear_idx = _linear_index(point, output_shape)
+        output.unsafe_ptr().store(linear_idx, val)
+
+    @always_inline
+    @parameter
+    fn dilation_fn(dim: Int) -> Int:
+        return dilation
+
+    comptime stencil_axis = IndexList[stencil_rank](1, 2)
+    stencil[
+        rank,
+        stencil_rank,
+        stencil_axis,
+        simd_with,
+        dtype,
+        map_fn[stencil_rank],
+        dilation_fn,
+        load_fn,
+        max_pool_compute_init,
+        max_pool_compute,
+        max_pool_compute_finalize,
+    ](output_shape, input_shape)
+
+    # CHECK: 33.0    34.0    35.0
+    # CHECK: 40.0    41.0    42.0
+    # CHECK: 47.0    48.0    49.0
+    for i in range(0, output_height):
+        for j in range(0, output_width):
+            var idx = _linear_index(IndexList[rank](0, i, j, 0), output_shape)
+            print(output.unsafe_ptr()[idx], "\t", end="")
+        print("")
+
+
+def main():
+    TestSuite.discover_tests[__functions_in_module()]().run()

@@ -1,0 +1,25 @@
+load("//bazel:api.bzl", "pkg_files", "strip_prefix")
+
+# gazelle:default_visibility //docs:__subpackages__
+
+package(default_visibility = ["//docs:__subpackages__"])
+
+pkg_files(
+    name = "docs",
+    srcs = glob(
+        [
+            "**",
+        ],
+        exclude = [
+            "README.md",
+            "BUILD.bazel",
+            "code/**",
+        ],
+    ),
+    prefix = "mojo",
+    renames = {
+        "changelog.md": "_nightly-changelog.md",
+        "changelog-released.md": "changelog.md",
+    },
+    strip_prefix = strip_prefix.from_pkg(""),
+)
