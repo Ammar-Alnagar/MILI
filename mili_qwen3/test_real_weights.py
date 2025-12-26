@@ -78,7 +78,7 @@ def test_model_generation(model):
 
     try:
         # Forward pass
-        logits, kv_cache = model.forward(input_ids, InferenceMode.PREFILL)
+        logits, kv_cache = model.forward(np.array(input_ids), InferenceMode.PREFILL)
         print(f"Forward pass successful!")
         print(f"Logits shape: {logits.shape}")
         print(f"KV cache length: {len(kv_cache)}")
